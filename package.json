@@ -1,0 +1,51 @@
+{
+  "name": "alojate-app",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "deploy": "npx expo export -p web && npx eas-cli@latest deploy"
+  },
+  "dependencies": {
+    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "assert": "^2.1.0",
+    "browserify-zlib": "^0.2.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.1",
+    "events": "^3.3.0",
+    "expo": "^53.0.4",
+    "expo-constants": "~17.1.4",
+    "expo-image-picker": "^16.1.4",
+    "expo-linking": "~7.1.4",
+    "expo-router": "~5.0.3",
+    "expo-splash-screen": "~0.30.7",
+    "expo-status-bar": "~2.2.3",
+    "https-browserify": "^1.0.0",
+    "net": "^1.0.2",
+    "process": "^0.11.10",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.1",
+    "react-native-date-picker": "^5.0.12",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-maps": "^1.23.7",
+    "react-native-safe-area-context": "5.3.0",
+    "react-native-screens": "~4.10.0",
+    "react-native-web": "^0.20.0",
+    "readable-stream": "^4.7.0",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.2.0",
+    "tls": "^0.0.1",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
+    "zustand": "^5.0.4"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
+}
