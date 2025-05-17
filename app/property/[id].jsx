@@ -28,15 +28,35 @@ export default function PropertyDetailScreen() {
 
   const handleWhatsApp = () => {
     if (selectedProperty?.users?.numero_telefono) {
-      const message = `Hola, estoy interesado/a en tu propiedad "${selectedProperty.titulo}" en Alojate.`;
-      Linking.openURL(`whatsapp://send?phone=${selectedProperty.users.numero_telefono}&text=${encodeURIComponent(message)}`);
+      const message = `Hola, estoy interesado/a en tu propiedad "${selectedProperty.titulo}" en Aloja-T.`;
+      
+      // Preprocesar el número telefónico para agregar el código de país de Venezuela (+58)
+      let phoneNumber = selectedProperty.users.numero_telefono.toString().trim();
+      
+      // Eliminar cualquier caracter no numérico excepto el signo +
+      phoneNumber = phoneNumber.replace(/[^0-9+]/g, '');
+      
+      // Verificar si el número ya tiene el código de país
+      if (!phoneNumber.startsWith('+58') && !phoneNumber.startsWith('58')) {
+        // Agregar el código de país +58 al número
+        phoneNumber = '+58' + phoneNumber;
+      } else if (phoneNumber.startsWith('58') && !phoneNumber.startsWith('+58')) {
+        // Si comienza con 58 pero sin +, agregar el +
+        phoneNumber = '+' + phoneNumber;
+      }
+      
+      Linking.openURL(`whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`);
     } else {
       Alert.alert('Error', 'No hay número de teléfono disponible');
     }
   };
 
   const handleReservationRequest = () => {
-    router.push(`/reservation/request?propertyId=${id}`);
+    // Pasar directamente el ID de la propiedad como parte de la ruta
+    router.push({
+      pathname: '/reservation/request',
+      params: { propertyId: id }
+    });
   };
 
   if (isLoading) {
@@ -128,8 +148,7 @@ export default function PropertyDetailScreen() {
         
         <View style={styles.priceContainer}>
           <Text style={styles.priceText}>
-            ${selectedProperty.precio_noche.toLocaleString()}
-            <Text style={styles.perNightText}> / Mes</Text>
+            ${selectedProperty.precio_noche.toLocaleString()} <Text style={styles.perMonthText}>/ mes</Text>
           </Text>
         </View>
         
@@ -339,7 +358,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.primary,
   },
-  perNightText: {
+  perMonthText: {
     fontSize: 14,
     fontWeight: 'normal',
     color: COLORS.darkGray,

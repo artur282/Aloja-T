@@ -1,33 +1,34 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  ActivityIndicator, 
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
   Alert,
-  Image 
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import useAuthStore from '../../store/authStore';
-import useReservationStore from '../../store/reservationStore';
-import usePaymentStore from '../../store/paymentStore';
-import { COLORS } from '../../utils/constants';
+  Image,
+} from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import useAuthStore from "../../store/authStore";
+import useReservationStore from "../../store/reservationStore";
+import usePaymentStore from "../../store/paymentStore";
+import { COLORS } from "../../utils/constants";
 
 export default function ReservationDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuthStore();
-  const { 
-    selectedReservation, 
-    fetchReservationById, 
+  const {
+    selectedReservation,
+    fetchReservationById,
     cancelReservation,
     updateReservationStatus,
-    isLoading 
+    isLoading,
   } = useReservationStore();
-  const { getPaymentByReservationId, isLoading: isLoadingPayment } = usePaymentStore();
-  
+  const { getPaymentByReservationId, isLoading: isLoadingPayment } =
+    usePaymentStore();
+
   const [paymentExists, setPaymentExists] = useState(false);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function ReservationDetailScreen() {
   const loadReservationData = async () => {
     // Load reservation data
     await fetchReservationById(id);
-    
+
     // Check if payment exists
     const { data } = await getPaymentByReservationId(id);
     setPaymentExists(!!data);
@@ -47,47 +48,47 @@ export default function ReservationDetailScreen() {
 
   const handleCancelReservation = () => {
     Alert.alert(
-      'Cancelar Reserva',
-      '¿Estás seguro que deseas cancelar esta reserva?',
+      "Cancelar Reserva",
+      "¿Estás seguro que deseas cancelar esta reserva?",
       [
-        { text: 'No', style: 'cancel' },
-        { 
-          text: 'Sí, Cancelar', 
-          style: 'destructive',
+        { text: "No", style: "cancel" },
+        {
+          text: "Sí, Cancelar",
+          style: "destructive",
           onPress: async () => {
             const { error } = await cancelReservation(id);
             if (error) {
-              Alert.alert('Error', 'No se pudo cancelar la reserva');
+              Alert.alert("Error", "No se pudo cancelar la reserva");
             } else {
-              Alert.alert('Éxito', 'Reserva cancelada correctamente', [
-                { text: 'OK', onPress: () => router.back() }
+              Alert.alert("Éxito", "Reserva cancelada correctamente", [
+                { text: "OK", onPress: () => router.back() },
               ]);
             }
-          }
+          },
         },
       ]
     );
   };
 
   const handleUpdateStatus = (newStatus) => {
-    const statusText = newStatus === 'aceptada' ? 'aceptar' : 'rechazar';
-    
+    const statusText = newStatus === "aceptada" ? "aceptar" : "rechazar";
+
     Alert.alert(
-      `${newStatus === 'aceptada' ? 'Aceptar' : 'Rechazar'} Reserva`,
+      `${newStatus === "aceptada" ? "Aceptar" : "Rechazar"} Reserva`,
       `¿Estás seguro que deseas ${statusText} esta reserva?`,
       [
-        { text: 'No', style: 'cancel' },
-        { 
-          text: `Sí, ${newStatus === 'aceptada' ? 'Aceptar' : 'Rechazar'}`, 
+        { text: "No", style: "cancel" },
+        {
+          text: `Sí, ${newStatus === "aceptada" ? "Aceptar" : "Rechazar"}`,
           onPress: async () => {
             const { error } = await updateReservationStatus(id, newStatus);
             if (error) {
-              Alert.alert('Error', `No se pudo ${statusText} la reserva`);
+              Alert.alert("Error", `No se pudo ${statusText} la reserva`);
             } else {
-              Alert.alert('Éxito', `Reserva ${newStatus} correctamente`);
+              Alert.alert("Éxito", `Reserva ${newStatus} correctamente`);
               loadReservationData();
             }
-          }
+          },
         },
       ]
     );
@@ -102,10 +103,10 @@ export default function ReservationDetailScreen() {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -132,16 +133,19 @@ export default function ReservationDetailScreen() {
   }
 
   const property = selectedReservation.properties;
-  const isPending = selectedReservation.estado_reserva === 'pendiente';
-  const isAccepted = selectedReservation.estado_reserva === 'aceptada';
-  const isRejected = selectedReservation.estado_reserva === 'rechazada';
-  const isCancelled = selectedReservation.estado_reserva === 'cancelada';
+  const isPending = selectedReservation.estado_reserva === "pendiente";
+  const isAccepted = selectedReservation.estado_reserva === "aceptada";
+  const isRejected = selectedReservation.estado_reserva === "rechazada";
+  const isCancelled = selectedReservation.estado_reserva === "cancelada";
   const isPaid = selectedReservation.estado_pago;
-  
+
   // Check if user is the property owner
   const isOwner = user && property && property.id_propietario === user.id;
   // Check if user is the reservation creator
-  const isReservationCreator = user && selectedReservation.id_usuario === user.id;
+  const isReservationCreator =
+    user && selectedReservation.id_usuario === user.id;
+  // Get property owner data
+  const propertyOwnerData = property?.propietario;
 
   return (
     <ScrollView style={styles.container}>
@@ -154,38 +158,48 @@ export default function ReservationDetailScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalles de la Reserva</Text>
       </View>
-      
+
       <View style={styles.statusContainer}>
-        <View style={[
-          styles.statusBadge,
-          isPending ? styles.pendingBadge : 
-          isAccepted ? styles.acceptedBadge : 
-          isRejected ? styles.rejectedBadge : 
-          styles.cancelledBadge
-        ]}>
+        <View
+          style={[
+            styles.statusBadge,
+            isPending
+              ? styles.pendingBadge
+              : isAccepted
+              ? styles.acceptedBadge
+              : isRejected
+              ? styles.rejectedBadge
+              : styles.cancelledBadge,
+          ]}
+        >
           <Text style={styles.statusText}>
-            {isPending ? 'Pendiente' : 
-             isAccepted ? 'Aceptada' : 
-             isRejected ? 'Rechazada' : 
-             'Cancelada'}
+            {isPending
+              ? "Pendiente"
+              : isAccepted
+              ? "Aceptada"
+              : isRejected
+              ? "Rechazada"
+              : "Cancelada"}
           </Text>
         </View>
-        
-        <View style={[
-          styles.paymentBadge,
-          isPaid ? styles.paidBadge : styles.unpaidBadge
-        ]}>
+
+        <View
+          style={[
+            styles.paymentBadge,
+            isPaid ? styles.paidBadge : styles.unpaidBadge,
+          ]}
+        >
           <Text style={styles.paymentText}>
-            {isPaid ? 'Pagado' : 'No pagado'}
+            {isPaid ? "Pagado" : "No pagado"}
           </Text>
         </View>
       </View>
-      
+
       <View style={styles.propertyCard}>
         <View style={styles.imageContainer}>
           {property?.galeria_fotos && property.galeria_fotos.length > 0 ? (
-            <Image 
-              source={{ uri: property.galeria_fotos[0] }} 
+            <Image
+              source={{ uri: property.galeria_fotos[0] }}
               style={styles.propertyImage}
               resizeMode="cover"
             />
@@ -196,15 +210,16 @@ export default function ReservationDetailScreen() {
             </View>
           )}
         </View>
-        
+
         <View style={styles.propertyDetails}>
           <Text style={styles.propertyTitle} numberOfLines={2}>
-            {property?.titulo || 'Propiedad'}
+            {property?.titulo || "Propiedad"}
           </Text>
           <Text style={styles.propertyLocation} numberOfLines={1}>
-            <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> {property?.direccion || 'Dirección no disponible'}
+            <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} />{" "}
+            {property?.direccion || "Dirección no disponible"}
           </Text>
-          
+
           <TouchableOpacity
             style={styles.viewPropertyButton}
             onPress={() => router.push(`/property/${property.id}`)}
@@ -213,87 +228,116 @@ export default function ReservationDetailScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Detalles de la Reserva</Text>
-        
+
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>ID de Reserva:</Text>
           <Text style={styles.detailText}>{id.substring(0, 8)}...</Text>
         </View>
-        
+
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Fecha de llegada:</Text>
-          <Text style={styles.detailText}>{formatDate(selectedReservation.fecha_llegada)}</Text>
+          <Text style={styles.detailText}>
+            {formatDate(selectedReservation.fecha_llegada)}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Fecha de salida:</Text>
-          <Text style={styles.detailText}>{formatDate(selectedReservation.fecha_salida)}</Text>
+          <Text style={styles.detailText}>
+            {formatDate(selectedReservation.fecha_salida)}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Fecha de reserva:</Text>
-          <Text style={styles.detailText}>{formatDate(selectedReservation.created_at)}</Text>
+          <Text style={styles.detailText}>
+            {formatDate(selectedReservation.created_at)}
+          </Text>
         </View>
-        
+
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Costo total:</Text>
-          <Text style={styles.priceText}>${selectedReservation.costo_total.toLocaleString()}</Text>
+          <Text style={styles.priceText}>
+            ${selectedReservation.costo_total.toLocaleString()}
+          </Text>
         </View>
       </View>
-      
+
       {/* Owner or Guest information */}
-      {selectedReservation.users && (
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>
-            {isOwner ? 'Información del Huésped' : 'Información del Propietario'}
-          </Text>
-          
-          <View style={styles.userInfo}>
-            <View style={styles.userImageContainer}>
-              {selectedReservation.users.url_foto_perfil ? (
-                <Image 
-                  source={{ uri: selectedReservation.users.url_foto_perfil }} 
-                  style={styles.userImage}
-                />
-              ) : (
-                <View style={styles.userImagePlaceholder}>
-                  <FontAwesome name="user" size={24} color={COLORS.white} />
-                </View>
-              )}
-            </View>
-            
-            <View style={styles.userDetails}>
-              <Text style={styles.userName}>
-                {selectedReservation.users.nombre_completo || 'Usuario'}
-              </Text>
-              <Text style={styles.userEmail}>
-                {selectedReservation.users.email || 'Email no disponible'}
-              </Text>
-              {selectedReservation.users.numero_telefono && (
+      <View style={styles.sectionCard}>
+        <Text style={styles.sectionTitle}>
+          {isOwner
+            ? "Información del Huésped"
+            : "Información del Propietario"}
+        </Text>
+
+        <View style={styles.userInfo}>
+          <View style={styles.userImageContainer}>
+            {isOwner 
+              ? (selectedReservation.users?.url_foto_perfil 
+                ? <Image
+                    source={{ uri: selectedReservation.users.url_foto_perfil }}
+                    style={styles.userImage}
+                  />
+                : <View style={styles.userImagePlaceholder}>
+                    <FontAwesome name="user" size={24} color={COLORS.white} />
+                  </View>)
+              : (propertyOwnerData?.url_foto_perfil 
+                ? <Image
+                    source={{ uri: propertyOwnerData.url_foto_perfil }}
+                    style={styles.userImage}
+                  />
+                : <View style={styles.userImagePlaceholder}>
+                    <FontAwesome name="user" size={24} color={COLORS.white} />
+                  </View>)
+            }
+          </View>
+
+          <View style={styles.userDetails}>
+            <Text style={styles.userName}>
+              {isOwner
+                ? (selectedReservation.users?.nombre_completo || "Usuario")
+                : (propertyOwnerData?.nombre_completo || "Propietario")}
+            </Text>
+            <Text style={styles.userEmail}>
+              {isOwner
+                ? (selectedReservation.users?.email || "Email no disponible")
+                : (propertyOwnerData?.email || "Email no disponible")}
+            </Text>
+            {isOwner 
+              ? (selectedReservation.users?.numero_telefono && (
                 <Text style={styles.userPhone}>
-                  <FontAwesome name="phone" size={14} color={COLORS.darkGray} /> {selectedReservation.users.numero_telefono}
-                </Text>
-              )}
-            </View>
+                  <FontAwesome name="phone" size={14} color={COLORS.darkGray} />{" "}
+                  {selectedReservation.users.numero_telefono}
+                </Text>))
+              : (propertyOwnerData?.numero_telefono && (
+                <Text style={styles.userPhone}>
+                  <FontAwesome name="phone" size={14} color={COLORS.darkGray} />{" "}
+                  {propertyOwnerData.numero_telefono}
+                </Text>))
+            }
           </View>
         </View>
-      )}
-      
+      </View>
+
       {/* Payment section */}
       <View style={styles.sectionCard}>
         <Text style={styles.sectionTitle}>Información de Pago</Text>
-        
+
         {isPaid || paymentExists ? (
           <View style={styles.paymentInfo}>
-            <MaterialIcons 
-              name="payment" 
-              size={24} 
-              color={isPaid ? COLORS.secondary : COLORS.accent} 
+            <MaterialIcons
+              name="payment"
+              size={24}
+              color={isPaid ? COLORS.secondary : COLORS.accent}
             />
             <Text style={styles.paymentInfoText}>
-              {isPaid ? 'Pago registrado y verificado' : 'Pago registrado, pendiente de verificación'}
+              {isPaid
+                ? "Pago registrado y verificado"
+                : "Pago registrado, pendiente de verificación"}
             </Text>
             <TouchableOpacity
               style={styles.viewPaymentButton}
@@ -319,7 +363,7 @@ export default function ReservationDetailScreen() {
           </View>
         )}
       </View>
-      
+
       {/* Actions */}
       {isPending && isReservationCreator && (
         <TouchableOpacity
@@ -329,19 +373,19 @@ export default function ReservationDetailScreen() {
           <Text style={styles.cancelButtonText}>Cancelar Reserva</Text>
         </TouchableOpacity>
       )}
-      
+
       {isPending && isOwner && (
         <View style={styles.ownerActionContainer}>
           <TouchableOpacity
             style={styles.acceptButton}
-            onPress={() => handleUpdateStatus('aceptada')}
+            onPress={() => handleUpdateStatus("aceptada")}
           >
             <Text style={styles.actionButtonText}>Aceptar Reserva</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={styles.rejectButton}
-            onPress={() => handleUpdateStatus('rechazada')}
+            onPress={() => handleUpdateStatus("rechazada")}
           >
             <Text style={styles.actionButtonText}>Rechazar Reserva</Text>
           </TouchableOpacity>
@@ -358,45 +402,45 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   errorText: {
     marginBottom: 20,
     fontSize: 16,
     color: COLORS.error,
-    textAlign: 'center',
+    textAlign: "center",
   },
   header: {
     backgroundColor: COLORS.primary,
     padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   backButton: {
     padding: 8,
   },
   backButtonText: {
     color: COLORS.primary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.white,
     marginLeft: -30,
   },
   statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     margin: 15,
     marginBottom: 5,
   },
@@ -419,7 +463,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 12,
   },
   paymentBadge: {
@@ -435,14 +479,14 @@ const styles = StyleSheet.create({
   },
   paymentText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 12,
   },
   propertyCard: {
     backgroundColor: COLORS.white,
     margin: 15,
     borderRadius: 10,
-    overflow: 'hidden',
+    overflow: "hidden",
     shadowColor: COLORS.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -453,15 +497,15 @@ const styles = StyleSheet.create({
     height: 150,
   },
   propertyImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   noImageContainer: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     backgroundColor: COLORS.lightGray,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   noImageText: {
     color: COLORS.darkGray,
@@ -472,7 +516,7 @@ const styles = StyleSheet.create({
   },
   propertyTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 5,
   },
@@ -486,11 +530,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 5,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   viewPropertyText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   sectionCard: {
     backgroundColor: COLORS.white,
@@ -506,7 +550,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 15,
     borderBottomWidth: 1,
@@ -514,8 +558,8 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   detailLabel: {
@@ -524,42 +568,42 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.text,
   },
   priceText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.primary,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   userImageContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginRight: 15,
   },
   userImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   userImagePlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
     backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   userDetails: {
     flex: 1,
   },
   userName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 5,
   },
@@ -573,8 +617,8 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
   },
   paymentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.lightGray,
     padding: 12,
     borderRadius: 8,
@@ -592,12 +636,12 @@ const styles = StyleSheet.create({
   },
   viewPaymentText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
     fontSize: 12,
   },
   noPaymentContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     padding: 20,
   },
   noPaymentText: {
@@ -613,7 +657,7 @@ const styles = StyleSheet.create({
   },
   recordPaymentText: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   cancelButton: {
     backgroundColor: COLORS.error,
@@ -621,15 +665,15 @@ const styles = StyleSheet.create({
     marginTop: 0,
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
     color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   ownerActionContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     margin: 15,
     marginTop: 0,
   },
@@ -638,7 +682,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.secondary,
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: 5,
   },
   rejectButton: {
@@ -646,12 +690,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.error,
     padding: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
     marginLeft: 5,
   },
   actionButtonText: {
     color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });

@@ -9,6 +9,12 @@ import { COLORS } from '../../utils/constants';
 export default function ProfileScreen() {
   const { user, signOut, updateProfile, uploadProfilePhoto, isLoading } = useAuthStore();
   
+  // Log user data for debugging
+  console.log('User data in profile screen:', JSON.stringify(user, null, 2));
+  console.log('User role in profile:', user?.rol);
+  console.log('Role type:', typeof user?.rol);
+  console.log('Documento identidad actual:', user?.documento_identidad);
+  
   const [isEditing, setIsEditing] = useState(false);
   const [nombreCompleto, setNombreCompleto] = useState(user?.nombre_completo || '');
   const [numeroTelefono, setNumeroTelefono] = useState(user?.numero_telefono || '');
@@ -20,15 +26,30 @@ export default function ProfileScreen() {
       return;
     }
     
-    const { error } = await updateProfile({
+    console.log('Enviando actualización con documento:', documentoIdentidad);
+    
+    // Crear objeto con datos explícitos para actualizar
+    const datosActualizados = {
       nombre_completo: nombreCompleto,
-      numero_telefono: numeroTelefono,
-      documento_identidad: documentoIdentidad,
-    });
+      numero_telefono: numeroTelefono || null,
+      documento_identidad: documentoIdentidad || null,
+    };
+    
+    console.log('Datos a actualizar:', JSON.stringify(datosActualizados, null, 2));
+    
+    const { error, user: updatedUser } = await updateProfile(datosActualizados);
     
     if (error) {
+      console.error('Error al actualizar perfil:', error);
       Alert.alert('Error', 'No se pudo actualizar el perfil');
     } else {
+      console.log('Perfil actualizado:', JSON.stringify(updatedUser, null, 2));
+      // Actualizar el estado local con los nuevos valores
+      if (updatedUser) {
+        setNombreCompleto(updatedUser.nombre_completo || '');
+        setNumeroTelefono(updatedUser.numero_telefono || '');
+        setDocumentoIdentidad(updatedUser.documento_identidad || '');
+      }
       Alert.alert('Éxito', 'Perfil actualizado correctamente');
       setIsEditing(false);
     }
@@ -46,7 +67,7 @@ export default function ProfileScreen() {
       
       // Open image picker
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: "images",
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
@@ -103,8 +124,18 @@ export default function ProfileScreen() {
         >
           {user.url_foto_perfil ? (
             <Image 
-              source={{ uri: user.url_foto_perfil }} 
+              source={{ 
+                uri: user.url_foto_perfil, 
+                // Agregar un timestamp para evitar caché en desarrollo
+                cache: 'reload',
+              }} 
               style={styles.profileImage} 
+              // Añadir manejadores de eventos para imagen
+              onError={(e) => {
+                console.error('Error al cargar imagen:', e.nativeEvent.error);
+                console.log('URL de imagen con error:', user.url_foto_perfil);
+              }}
+              onLoad={() => console.log('Imagen cargada correctamente')}
             />
           ) : (
             <View style={styles.profilePlaceholder}>
@@ -121,8 +152,13 @@ export default function ProfileScreen() {
         
         <View style={styles.roleBadge}>
           <Text style={styles.roleText}>
-            {user.rol === 'estudiante' ? 'Estudiante' : 
-             user.rol === 'propietario' ? 'Propietario' : 'Administrador'}
+            {(() => {
+              const rol = user.rol ? user.rol.toString().toLowerCase().trim() : '';
+              if (rol.includes('estudiante')) return 'Estudiante';
+              if (rol.includes('propietario')) return 'Propietario';
+              if (rol.includes('admin')) return 'Administrador';
+              return user.rol || 'Usuario';
+            })()}
           </Text>
         </View>
       </View>

@@ -43,7 +43,7 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.formContainer}>
-        <Text style={styles.title}>Alojate</Text>
+        <Text style={styles.title}>Aloja-T</Text>
         <Text style={styles.subtitle}>Encuentra tu alojamiento ideal</Text>
 
         <View style={styles.inputContainer}>

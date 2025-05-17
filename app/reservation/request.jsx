@@ -7,57 +7,91 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   Alert,
-  Image 
+  Image,
+  TextInput
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
-import DatePicker from 'react-native-date-picker';
 import useAuthStore from '../../store/authStore';
 import usePropertyStore from '../../store/propertyStore';
 import useReservationStore from '../../store/reservationStore';
 import { COLORS } from '../../utils/constants';
 
 export default function ReservationRequestScreen() {
-  const { propertyId } = useLocalSearchParams();
+  // Obtener el ID de la propiedad de los parámetros de la URL
+  const params = useLocalSearchParams();
+  const propertyId = params.propertyId;
+  
   const { user } = useAuthStore();
   const { selectedProperty, fetchPropertyById, isLoading: isLoadingProperty } = usePropertyStore();
   const { createReservation, isLoading: isLoadingReservation } = useReservationStore();
   
-  const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(new Date(new Date().setDate(new Date().getDate() + 1)));
-  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
-  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  // Start date will be based on current date
+  const [startDateStr, setStartDateStr] = useState(new Date().toISOString().split('T')[0]);
+  // Use months for duration instead of specific end date
+  const [durationMonths, setDurationMonths] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [nightsCount, setNightsCount] = useState(1);
   
+  // Calculate end date based on start date + duration months (for display only)
+  const calculateEndDate = (start, months) => {
+    const startDate = new Date(start);
+    const endDate = new Date(startDate);
+    endDate.setMonth(startDate.getMonth() + months);
+    return endDate.toISOString().split('T')[0];
+  };
+  
+  // Computed end date (for display only)
+  const [endDateStr, setEndDateStr] = useState(
+    calculateEndDate(startDateStr, durationMonths)
+  );
+  
+  // Fetch property details when propertyId is available
   useEffect(() => {
     if (propertyId) {
       fetchPropertyById(propertyId);
     }
   }, [propertyId]);
   
+  // Update end date whenever start date or duration months changes
   useEffect(() => {
-    // Calculate nights and total price whenever dates change
-    if (startDate && endDate) {
-      const nights = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
-      setNightsCount(Math.max(1, nights));
-      
-      if (selectedProperty) {
-        setTotalPrice(selectedProperty.precio_noche * Math.max(1, nights));
-      }
+    setEndDateStr(calculateEndDate(startDateStr, durationMonths));
+  }, [startDateStr, durationMonths]);
+  
+  // Calculate total price based on monthly price and duration
+  useEffect(() => {
+    if (selectedProperty) {
+      // Calculate total price by multiplying monthly price by number of months
+      const monthlyPrice = selectedProperty.precio_noche; // precio_noche now represents price per month
+      setTotalPrice(monthlyPrice * durationMonths);
     }
-  }, [startDate, endDate, selectedProperty]);
+  }, [selectedProperty, durationMonths]);
   
   const handleCreateReservation = async () => {
     try {
-      // Validate dates
-      if (startDate >= endDate) {
-        Alert.alert('Error', 'La fecha de llegada debe ser anterior a la fecha de salida');
-        return;
+      // Get current date without time portion for fair comparison
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+      
+      // Ensure we have a valid start date
+      let start = new Date(startDateStr);
+      
+      if (isNaN(start.getTime())) {
+        // If invalid date, default to today
+        start = currentDate;
+        setStartDateStr(currentDate.toISOString().split('T')[0]);
       }
       
-      if (startDate < new Date()) {
-        Alert.alert('Error', 'La fecha de llegada no puede ser en el pasado');
+      // If date is in the past, automatically use today's date
+      if (start < currentDate) {
+        start = currentDate;
+        setStartDateStr(currentDate.toISOString().split('T')[0]);
+        // Recalculate end date
+        setEndDateStr(calculateEndDate(currentDate.toISOString().split('T')[0], durationMonths));
+      }
+      
+      // Validate duration
+      if (durationMonths < 1) {
+        Alert.alert('Error', 'La duración mínima es de 1 mes');
         return;
       }
       
@@ -65,8 +99,9 @@ export default function ReservationRequestScreen() {
       const reservationData = {
         id_usuario: user.id,
         id_propiedad: propertyId,
-        fecha_llegada: startDate.toISOString().split('T')[0],
-        fecha_salida: endDate.toISOString().split('T')[0],
+        fecha_llegada: startDateStr,
+        fecha_salida: endDateStr, // This is now calculated based on start date + months
+        duration_months: durationMonths, // New field for database
         costo_total: totalPrice,
         estado_reserva: 'pendiente',
         estado_pago: false
@@ -90,12 +125,35 @@ export default function ReservationRequestScreen() {
     }
   };
   
-  const formatDate = (date) => {
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  // Format date for display
+  const formatDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      
+      return date.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+  
+  // Handle date input changes
+  const handleStartDateChange = (text) => {
+    // Basic validation for YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
+      setStartDateStr(text);
+    }
+  };
+  
+  const handleEndDateChange = (text) => {
+    // Basic validation for YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
+      setEndDateStr(text);
+    }
   };
   
   if (isLoadingProperty) {
@@ -156,74 +214,62 @@ export default function ReservationRequestScreen() {
             <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> {selectedProperty.direccion}
           </Text>
           <Text style={styles.propertyPrice}>
-            ${selectedProperty.precio_noche.toLocaleString()} <Text style={styles.perNight}>/ noche</Text>
+            ${selectedProperty.precio_noche.toLocaleString()} <Text style={styles.perNight}>/ mes</Text>
           </Text>
         </View>
       </View>
       
       <View style={styles.formContainer}>
-        <Text style={styles.sectionTitle}>Fechas de tu estancia</Text>
+        <Text style={styles.sectionTitle}>Detalles de tu estancia</Text>
         
-        <View style={styles.dateSelectionContainer}>
-          <TouchableOpacity 
+        {/* Fecha de llegada */}
+        <View style={styles.formRow}>
+          <Text style={styles.formLabel}>Fecha de llegada:</Text>
+          <TextInput
             style={styles.dateInput}
-            onPress={() => setShowStartDatePicker(true)}
-          >
-            <Text style={styles.dateLabel}>Llegada</Text>
-            <Text style={styles.dateValue}>{formatDate(startDate)}</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.dateSeparator}>
-            <FontAwesome name="arrow-right" size={16} color={COLORS.darkGray} />
+            value={startDateStr}
+            onChangeText={(text) => {
+              // Basic validation for YYYY-MM-DD format
+              if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
+                setStartDateStr(text);
+              }
+            }}
+            placeholder="AAAA-MM-DD"
+            keyboardType="default"
+          />
+        </View>
+        <Text style={styles.dateHelperText}>{formatDate(startDateStr)}</Text>
+        
+        {/* Duration selector */}
+        <View style={styles.formRow}>
+          <Text style={styles.formLabel}>Duración del alquiler:</Text>
+          <View style={styles.durationSelector}>
+            <TouchableOpacity
+              style={styles.durationButton}
+              onPress={() => durationMonths > 1 && setDurationMonths(durationMonths - 1)}
+              disabled={durationMonths <= 1}
+            >
+              <Text style={styles.durationButtonText}>-</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.durationDisplay}>
+              <Text style={styles.durationText}>{durationMonths} {durationMonths === 1 ? 'mes' : 'meses'}</Text>
+            </View>
+            
+            <TouchableOpacity
+              style={styles.durationButton}
+              onPress={() => setDurationMonths(durationMonths + 1)}
+            >
+              <Text style={styles.durationButtonText}>+</Text>
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.dateInput}
-            onPress={() => setShowEndDatePicker(true)}
-          >
-            <Text style={styles.dateLabel}>Salida</Text>
-            <Text style={styles.dateValue}>{formatDate(endDate)}</Text>
-          </TouchableOpacity>
         </View>
         
-        <Text style={styles.nightsCount}>
-          {nightsCount} {nightsCount === 1 ? 'noche' : 'noches'}
-        </Text>
-        
-        <DatePicker
-          modal
-          open={showStartDatePicker}
-          date={startDate}
-          minimumDate={new Date()}
-          onConfirm={(date) => {
-            setStartDate(date);
-            setShowStartDatePicker(false);
-            
-            // Ensure end date is after start date
-            if (date >= endDate) {
-              const newEndDate = new Date(date);
-              newEndDate.setDate(date.getDate() + 1);
-              setEndDate(newEndDate);
-            }
-          }}
-          onCancel={() => setShowStartDatePicker(false)}
-          mode="date"
-          locale="es"
-        />
-        
-        <DatePicker
-          modal
-          open={showEndDatePicker}
-          date={endDate}
-          minimumDate={new Date(startDate.getTime() + 86400000)} // Start date + 1 day
-          onConfirm={(date) => {
-            setEndDate(date);
-            setShowEndDatePicker(false);
-          }}
-          onCancel={() => setShowEndDatePicker(false)}
-          mode="date"
-          locale="es"
-        />
+        {/* Display calculated end date */}
+        <View style={styles.formRow}>
+          <Text style={styles.formLabel}>Fecha de salida (estimada):</Text>
+          <Text style={styles.calculatedEndDate}>{formatDate(endDateStr)}</Text>
+        </View>
       </View>
       
       <View style={styles.summaryContainer}>
@@ -231,10 +277,19 @@ export default function ReservationRequestScreen() {
         
         <View style={styles.priceRow}>
           <Text style={styles.priceLabel}>
-            ${selectedProperty.precio_noche.toLocaleString()} x {nightsCount} {nightsCount === 1 ? 'noche' : 'noches'}
+            Alquiler mensual
           </Text>
           <Text style={styles.priceValue}>
-            ${(selectedProperty.precio_noche * nightsCount).toLocaleString()}
+            ${selectedProperty.precio_noche.toLocaleString()}
+          </Text>
+        </View>
+        
+        <View style={styles.priceRow}>
+          <Text style={styles.priceLabel}>
+            Duración
+          </Text>
+          <Text style={styles.priceValue}>
+            {durationMonths} {durationMonths === 1 ? 'mes' : 'meses'}
           </Text>
         </View>
         
@@ -374,34 +429,70 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 15,
   },
-  dateSelectionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Form layout styles
+  formRow: {
     marginBottom: 15,
   },
+  formLabel: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
   dateInput: {
-    flex: 1,
+    backgroundColor: COLORS.lightGray,
+    padding: 12,
+    borderRadius: 5,
+    fontSize: 14,
+  },
+  dateHelperText: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontStyle: 'italic',
+    marginTop: 4,
+    marginBottom: 15,
+  },
+  calculatedEndDate: {
+    fontSize: 16,
+    color: COLORS.text,
     backgroundColor: COLORS.lightGray,
     padding: 12,
     borderRadius: 5,
   },
-  dateLabel: {
-    fontSize: 12,
-    color: COLORS.darkGray,
-    marginBottom: 5,
+  
+  // Duration selector styles
+  durationSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 5,
   },
-  dateValue: {
-    fontSize: 14,
+  durationButton: {
+    backgroundColor: COLORS.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  durationButtonText: {
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  durationDisplay: {
+    flex: 1,
+    backgroundColor: COLORS.lightGray,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    marginHorizontal: 10,
+    alignItems: 'center',
+  },
+  durationText: {
+    fontSize: 16,
     color: COLORS.text,
     fontWeight: '500',
-  },
-  dateSeparator: {
-    marginHorizontal: 10,
-  },
-  nightsCount: {
-    textAlign: 'center',
-    color: COLORS.darkGray,
-    fontStyle: 'italic',
   },
   summaryContainer: {
     backgroundColor: COLORS.white,

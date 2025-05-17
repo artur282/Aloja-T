@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -21,11 +21,23 @@ export default function AddPropertyScreen() {
   const { user } = useAuthStore();
   const { createProperty, uploadPropertyImages, isLoading } = usePropertyStore();
   
+  // Protección de ruta: solo propietarios pueden acceder
+  useEffect(() => {
+    if (user && user.rol !== 'propietario') {
+      // Si no es propietario, redirigir a la página principal
+      Alert.alert(
+        'Acceso restringido',
+        'Esta sección está disponible solo para usuarios propietarios.',
+        [{ text: 'Entendido', onPress: () => router.replace('/') }]
+      );
+    }
+  }, [user]);
+  
   // Form state
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [direccion, setDireccion] = useState('');
-  const [precioNoche, setPrecioNoche] = useState('');
+  const [precioMes, setPrecioMes] = useState('');
   const [tipoPropiedad, setTipoPropiedad] = useState('');
   const [capacidad, setCapacidad] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState([]);
@@ -85,8 +97,8 @@ export default function AddPropertyScreen() {
       return false;
     }
     
-    if (!precioNoche.trim() || isNaN(parseFloat(precioNoche))) {
-      Alert.alert('Error', 'El precio por noche debe ser un número válido');
+    if (!precioMes.trim() || isNaN(parseFloat(precioMes))) {
+      Alert.alert('Error', 'El precio por mes debe ser un número válido');
       return false;
     }
     
@@ -103,7 +115,7 @@ export default function AddPropertyScreen() {
         titulo,
         descripcion,
         direccion,
-        precio_noche: parseFloat(precioNoche),
+        precio_noche: parseFloat(precioMes),
         tipo_propiedad: tipoPropiedad,
         servicios: selectedAmenities,
         capacidad: capacidad ? parseInt(capacidad) : null,
@@ -189,14 +201,14 @@ export default function AddPropertyScreen() {
           <Text style={styles.sectionTitle}>Detalles de la Propiedad</Text>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Precio por Mes</Text>
+            <Text style={styles.label}>Precio por mes</Text>
             <View style={styles.priceInput}>
               <Text style={styles.priceCurrency}>$</Text>
               <TextInput
                 style={[styles.input, { flex: 1, borderWidth: 0, paddingLeft: 0 }]}
                 placeholder="0.00"
-                value={precioNoche}
-                onChangeText={setPrecioNoche}
+                value={precioMes}
+                onChangeText={setPrecioMes}
                 keyboardType="numeric"
               />
             </View>

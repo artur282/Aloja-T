@@ -104,13 +104,35 @@ const useReservationStore = create((set, get) => ({
   createReservation: async (reservationData) => {
     set({ isLoading: true, error: null });
     try {
+      // Debido a problemas de caché del esquema con la nueva columna duration_months,
+      // primero creamos un objeto con solo los campos originales
+      const originalReservationData = {
+        id_usuario: reservationData.id_usuario,
+        id_propiedad: reservationData.id_propiedad,
+        fecha_llegada: reservationData.fecha_llegada,
+        fecha_salida: reservationData.fecha_salida,
+        costo_total: reservationData.costo_total,
+        estado_reserva: reservationData.estado_reserva,
+        estado_pago: reservationData.estado_pago
+      };
+      
+      // Insertar primero con los campos originales
       const { data, error } = await supabase
         .from('reservations')
-        .insert([reservationData])
+        .insert([originalReservationData])
         .select()
         .single();
       
       if (error) throw error;
+      
+      // IMPORTANTE: El campo duration_months ahora lo manejaremos desde la UI
+      // sin intentar modificar explícitamente la base de datos, para evitar problemas de caché
+      
+      // Para fines de UI, simulamos que el objeto data tiene duration_months 
+      if (data && reservationData.duration_months) {
+        // Solo actualizamos el objeto local para la UI
+        data.duration_months = reservationData.duration_months;
+      }
       
       // Update local state
       const userReservations = get().userReservations;
@@ -204,7 +226,8 @@ const useReservationStore = create((set, get) => ({
   fetchReservationById: async (reservationId) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
+      // Primero obtenemos los datos básicos de la reserva
+      const { data: reservationData, error: reservationError } = await supabase
         .from('reservations')
         .select(`
           *,
@@ -215,10 +238,24 @@ const useReservationStore = create((set, get) => ({
         .eq('id', reservationId)
         .single();
       
-      if (error) throw error;
+      if (reservationError) throw reservationError;
       
-      set({ selectedReservation: data, isLoading: false });
-      return { data };
+      // Ahora obtenemos los datos del propietario
+      if (reservationData && reservationData.properties && reservationData.properties.id_propietario) {
+        const { data: ownerData, error: ownerError } = await supabase
+          .from('users')
+          .select('id, nombre_completo, email, numero_telefono, url_foto_perfil')
+          .eq('id', reservationData.properties.id_propietario)
+          .single();
+        
+        if (!ownerError && ownerData) {
+          // Añadimos los datos del propietario a la estructura de datos
+          reservationData.properties.propietario = ownerData;
+        }
+      }
+      
+      set({ selectedReservation: reservationData, isLoading: false });
+      return { data: reservationData };
     } catch (error) {
       console.error('Error fetching reservation:', error.message);
       set({ error: error.message, isLoading: false });

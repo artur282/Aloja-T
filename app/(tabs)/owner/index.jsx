@@ -10,6 +10,18 @@ export default function OwnerPropertiesScreen() {
   const { user } = useAuthStore();
   const { userProperties, fetchUserProperties, deleteProperty, isLoading } = usePropertyStore();
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Protección de ruta: solo propietarios pueden acceder
+  useEffect(() => {
+    if (user && user.rol !== 'propietario') {
+      // Si no es propietario, redirigir a la página principal
+      Alert.alert(
+        'Acceso restringido',
+        'Esta sección está disponible solo para usuarios propietarios.',
+        [{ text: 'Entendido', onPress: () => router.replace('/') }]
+      );
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -100,7 +112,7 @@ export default function OwnerPropertiesScreen() {
         
         <View style={styles.propertyStats}>
           <Text style={styles.propertyPrice}>
-            ${item.precio_noche.toLocaleString()} <Text style={styles.perNight}>/ noche</Text>
+            ${item.precio_noche.toLocaleString()} <Text style={styles.perNight}>/ mes</Text>
           </Text>
           
           {item.tipo_propiedad && (
