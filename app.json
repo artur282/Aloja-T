@@ -4,7 +4,16 @@
     "plugins": [
       "expo-router"
     ],
-    "name": "alojate-app",
-    "slug": "alojate-app"
+    "name": "aloja-T",
+    "slug": "alojate-app",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c2a0a314-2266-46a8-a4dd-c1c48457f4e8"
+      }
+    },
+    "android": {
+      "package": "com.arthur995.alojateapp"
+    }
   }
 }
