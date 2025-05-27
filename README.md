@@ -1,6 +1,6 @@
 # Alojate - Aplicación de Alojamiento Estudiantil
 
-Alojate es una aplicación móvil completa desarrollada con React Native y Expo para facilitar la conexión entre estudiantes que buscan alojamiento y propietarios que ofrecen propiedades para rentar. La aplicación utiliza Supabase como backend para proporcionar una experiencia fluida y segura.
+Alojate es una aplicación móvil completa desarrollada con React Native y Expo para facilitar la conexión entre estudiantes que buscan alojamiento y propietarios que ofrecen propiedades para rentar. La aplicación utiliza Supabase como backend para proporcionar una experiencia fluida y segura. 
 
 ## 🏠 Características
 
