@@ -86,6 +86,3 @@ npm start
 3. Configura los buckets de Storage para almacenamiento de imágenes
 4. Actualiza las credenciales en `utils/constants.js`
 
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT. 
