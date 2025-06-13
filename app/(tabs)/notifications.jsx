@@ -14,6 +14,7 @@ export default function NotificationsScreen() {
     fetchNotifications, 
     markAsRead,
     markAllAsRead,
+    deleteAllNotifications,
     isLoading,
     lastNotification 
   } = useNotificationStore();
@@ -67,6 +68,23 @@ export default function NotificationsScreen() {
   const handleMarkAllAsRead = () => {
     if (user && unreadCount > 0) {
       markAllAsRead(user.id);
+    }
+  };
+  
+  const handleDeleteAllNotifications = () => {
+    if (user && notifications.length > 0) {
+      Alert.alert(
+        'Vaciar notificaciones',
+        '¿Estás seguro de que quieres eliminar todas tus notificaciones? Esta acción no se puede deshacer.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Eliminar todas', 
+            style: 'destructive',
+            onPress: () => deleteAllNotifications(user.id)
+          }
+        ]
+      );
     }
   };
 
@@ -134,14 +152,25 @@ export default function NotificationsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Notificaciones</Text>
-        {unreadCount > 0 && (
-          <TouchableOpacity 
-            style={styles.markAllButton}
-            onPress={handleMarkAllAsRead}
-          >
-            <Text style={styles.markAllText}>Marcar todas como leídas</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerButtons}>
+          {unreadCount > 0 && (
+            <TouchableOpacity 
+              style={styles.headerButton}
+              onPress={handleMarkAllAsRead}
+            >
+              <Text style={styles.buttonText}>Marcar como leídas</Text>
+            </TouchableOpacity>
+          )}
+          
+          {notifications.length > 0 && (
+            <TouchableOpacity 
+              style={[styles.headerButton, styles.clearButton]}
+              onPress={handleDeleteAllNotifications}
+            >
+              <Text style={[styles.buttonText, styles.clearButtonText]}>Vaciar</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
       {isLoading && !refreshing ? (
@@ -193,12 +222,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
-  markAllButton: {
-    padding: 5,
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  markAllText: {
+  headerButton: {
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+    marginLeft: 5,
+    backgroundColor: COLORS.primary + '15',
+  },
+  buttonText: {
     color: COLORS.primary,
     fontWeight: '500',
+    fontSize: 13,
+  },
+  clearButton: {
+    backgroundColor: COLORS.error + '15',
+  },
+  clearButtonText: {
+    color: COLORS.error,
   },
   loadingContainer: {
     flex: 1,

@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Alert } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Linking, Alert } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
 import { FontAwesome, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import usePropertyStore from '../../store/propertyStore';
+import useAuthStore from '../../store/authStore';
 import { COLORS } from '../../utils/constants';
 
 const { width } = Dimensions.get('window');
@@ -10,7 +12,29 @@ const { width } = Dimensions.get('window');
 export default function PropertyDetailScreen() {
   const { id } = useLocalSearchParams();
   const { selectedProperty, fetchPropertyById, isLoading } = usePropertyStore();
+  const { user } = useAuthStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Verificar si el usuario puede hacer reservas
+  const canReserve = useMemo(() => {
+    // No permitir reservas si la propiedad ya está reservada o no está disponible
+    if (selectedProperty?.estado && selectedProperty.estado !== 'disponible') {
+      return false;
+    }
+
+    // No permitir reservas a usuarios de tipo propietario
+    if (user?.rol === 'propietario') {
+      return false;
+    }
+    
+    // No permitir reservas al propietario de la propiedad
+    if (selectedProperty?.id_propietario === user?.id) {
+      return false;
+    }
+    
+    // Cualquier otro usuario puede reservar
+    return true;
+  }, [user, selectedProperty]);
 
   useEffect(() => {
     if (id) {
@@ -102,7 +126,11 @@ export default function PropertyDetailScreen() {
                   key={index}
                   source={{ uri: photo }}
                   style={styles.galleryImage}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  transition={300}
+                  placeholder={{uri: null}}
+                  cachePolicy="memory-disk"
+                  onError={() => console.log(`Error loading gallery image ${index} for property ${id}`)}
                 />
               ))}
             </ScrollView>
@@ -206,6 +234,10 @@ export default function PropertyDetailScreen() {
                 <Image
                   source={{ uri: selectedProperty.users.url_foto_perfil }}
                   style={styles.ownerImage}
+                  contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
+                  onError={() => console.log(`Error loading owner profile image for property ${id}`)}
                 />
               ) : (
                 <View style={styles.ownerPlaceholder}>
@@ -238,13 +270,28 @@ export default function PropertyDetailScreen() {
           </TouchableOpacity>
         </View>
         
-        {/* Reserve Button */}
-        <TouchableOpacity
-          style={styles.reserveButton}
-          onPress={handleReservationRequest}
-        >
-          <Text style={styles.reserveButtonText}>Solicitar Reserva</Text>
-        </TouchableOpacity>
+        {/* Reserve Button - Only shown if user can reserve */}
+        {canReserve && (
+          <TouchableOpacity
+            style={styles.reserveButton}
+            onPress={handleReservationRequest}
+          >
+            <Text style={styles.reserveButtonText}>Solicitar Reserva</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Message when user cannot reserve */}
+        {!canReserve && (
+          <View style={styles.cannotReserveContainer}>
+            {selectedProperty?.estado && selectedProperty.estado !== 'disponible' ? (
+              <Text style={styles.cannotReserveText}>Esta propiedad ya está reservada</Text>
+            ) : user?.rol === 'propietario' ? (
+              <Text style={styles.cannotReserveText}>Los propietarios no pueden hacer reservas</Text>
+            ) : (
+              <Text style={styles.cannotReserveText}>No puedes reservar tu propia propiedad</Text>
+            )}
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -288,6 +335,7 @@ const styles = StyleSheet.create({
   galleryImage: {
     width,
     height: 250,
+    backgroundColor: COLORS.lightGray,
   },
   noImageContainer: {
     width: '100%',
@@ -483,5 +531,17 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  cannotReserveContainer: {
+    backgroundColor: COLORS.lightGray,
+    padding: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  cannotReserveText: {
+    color: COLORS.darkGray,
+    fontSize: 14,
+    fontStyle: 'italic',
   },
 });

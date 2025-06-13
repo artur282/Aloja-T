@@ -81,6 +81,11 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        <TouchableOpacity onPress={() => router.push('/reset-password')}
+          style={{ marginTop: 10, alignSelf: 'center' }}>
+          <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>¿No tienes una cuenta? </Text>
           <Link href="/signup" asChild>

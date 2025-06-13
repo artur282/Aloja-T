@@ -19,8 +19,9 @@ export default function ReservationsScreen() {
     isLoading 
   } = useReservationStore();
   
-  const [activeTab, setActiveTab] = useState('user');
   const isOwner = user?.rol === 'propietario';
+  // Si es propietario, por defecto mostrar la vista de solicitudes
+  const [activeTab, setActiveTab] = useState(isOwner ? 'owner' : 'user');
   
   useEffect(() => {
     // Load appropriate reservations based on user role
@@ -197,25 +198,12 @@ export default function ReservationsScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Si es propietario, mostramos solo la sección de Solicitudes sin opción de cambiar */}
       {isOwner && (
         <View style={styles.tabs}>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'user' && styles.activeTab]}
-            onPress={() => setActiveTab('user')}
-          >
-            <Text style={[styles.tabText, activeTab === 'user' && styles.activeTabText]}>
-              Mis Reservas
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'owner' && styles.activeTab]}
-            onPress={() => setActiveTab('owner')}
-          >
-            <Text style={[styles.tabText, activeTab === 'owner' && styles.activeTabText]}>
-              Solicitudes
-            </Text>
-          </TouchableOpacity>
+          <View style={[styles.tab, styles.activeTab]}> 
+            <Text style={[styles.tabText, styles.activeTabText]}>Solicitudes</Text>
+          </View>
         </View>
       )}
       

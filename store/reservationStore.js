@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import supabase from '../services/supabaseClient';
+import usePropertyStore from './propertyStore';
 
 const useReservationStore = create((set, get) => ({
   userReservations: [],
@@ -178,6 +179,40 @@ const useReservationStore = create((set, get) => ({
         selectedReservation: data,
         isLoading: false
       });
+      
+      /* --- Actualizar estado de la propiedad --- */
+      let nuevoEstadoPropiedad = null;
+      if (newStatus === 'aceptada') {
+        nuevoEstadoPropiedad = 'reservado';
+      } else if (newStatus === 'rechazada' || newStatus === 'cancelada') {
+        nuevoEstadoPropiedad = 'disponible';
+      }
+      
+      if (nuevoEstadoPropiedad) {
+        const { data: updatedProperty, error: propError } = await supabase
+          .from('properties')
+          .update({ estado: nuevoEstadoPropiedad })
+          .eq('id', data.id_propiedad)
+          .select()
+          .single();
+        
+        if (!propError && updatedProperty) {
+          // Sincronizar tienda de propiedades
+          usePropertyStore.setState((prev) => {
+            const updateArray = (arr) =>
+              arr.map((p) => (p.id === updatedProperty.id ? updatedProperty : p));
+            
+            return {
+              userProperties: updateArray(prev.userProperties || []),
+              properties: updateArray(prev.properties || []),
+              selectedProperty:
+                prev.selectedProperty && prev.selectedProperty.id === updatedProperty.id
+                  ? updatedProperty
+                  : prev.selectedProperty,
+            };
+          });
+        }
+      }
       
       return { data };
     } catch (error) {

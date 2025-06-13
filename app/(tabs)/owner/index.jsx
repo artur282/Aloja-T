@@ -1,16 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import useAuthStore from '../../../store/authStore';
 import usePropertyStore from '../../../store/propertyStore';
+import useReservationStore from '../../../store/reservationStore';
 import { COLORS } from '../../../utils/constants';
 
 export default function OwnerPropertiesScreen() {
   const { user } = useAuthStore();
   const { userProperties, fetchUserProperties, deleteProperty, isLoading } = usePropertyStore();
+  const { propertyReservations, fetchAllOwnerReservations } = useReservationStore();
   const [refreshing, setRefreshing] = useState(false);
   
+  // Mostrar todas las propiedades, excepto las marcadas como inactivas
+  const filteredProperties = useMemo(() =>
+    userProperties.filter((p) => p.estado !== 'inactivo'),
+    [userProperties]
+  );
+
   // Protección de ruta: solo propietarios pueden acceder
   useEffect(() => {
     if (user && user.rol !== 'propietario') {
@@ -31,7 +39,10 @@ export default function OwnerPropertiesScreen() {
 
   const loadProperties = async () => {
     if (user) {
-      await fetchUserProperties(user.id);
+      await Promise.all([
+        fetchUserProperties(user.id),
+        fetchAllOwnerReservations(user.id),
+      ]);
     }
   };
 
@@ -50,6 +61,16 @@ export default function OwnerPropertiesScreen() {
   };
 
   const handleDeleteProperty = (propertyId) => {
+    // Verificar si la propiedad está reservada
+    const property = userProperties.find((p) => p.id === propertyId);
+    if (property && property.estado === 'reservado') {
+      Alert.alert(
+        'Acción no permitida',
+        'No puedes eliminar una propiedad que actualmente tiene una reserva activa.'
+      );
+      return;
+    }
+
     Alert.alert(
       'Eliminar Propiedad',
       '¿Estás seguro que deseas eliminar esta propiedad? Esta acción no se puede deshacer.',
@@ -161,7 +182,7 @@ export default function OwnerPropertiesScreen() {
         </View>
       ) : (
         <FlatList
-          data={userProperties}
+          data={filteredProperties}
           renderItem={renderPropertyItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}

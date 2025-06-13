@@ -463,6 +463,38 @@ const useAuthStore = create((set, get) => ({
       return { error };
     }
   },
+  
+  // Request password reset
+  requestPasswordReset: async (email) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "https://starlit-hummingbird-f58616.netlify.app/",
+      });
+      if (error) throw error;
+      set({ isLoading: false });
+      return { success: true };
+    } catch (error) {
+      console.error('Error requesting password reset:', error.message);
+      set({ isLoading: false, error: error.message });
+      return { success: false, error };
+    }
+  },
+  
+  // Update password
+  updatePassword: async (newPassword) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      set({ isLoading: false, user: data.user });
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating password:', error.message);
+      set({ isLoading: false, error: error.message });
+      return { success: false, error };
+    }
+  },
 }));
 
 export default useAuthStore;

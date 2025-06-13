@@ -15,6 +15,7 @@ import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import useReservationStore from '../../store/reservationStore';
 import usePaymentStore from '../../store/paymentStore';
+import useAuthStore from '../../store/authStore';
 import { COLORS, PAYMENT_METHODS } from '../../utils/constants';
 
 export default function PaymentRecordScreen() {
@@ -25,13 +26,17 @@ export default function PaymentRecordScreen() {
     createPayment, 
     getPaymentByReservationId, 
     uploadPaymentProof, 
-    isLoading: isLoadingPayment
+    isLoading: isLoadingPayment,
+    verifyPaymentAsOwner,
+    checkIsPropertyOwner
   } = usePaymentStore();
+  const { user } = useAuthStore();
   
   const [metodoPago, setMetodoPago] = useState('');
   const [montoPagado, setMontoPagado] = useState('');
   const [comprobantePago, setComprobantePago] = useState(null);
   const [existingPayment, setExistingPayment] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   
   useEffect(() => {
     if (reservationId) {
@@ -51,6 +56,12 @@ export default function PaymentRecordScreen() {
       setMetodoPago(data.metodo_pago || '');
       setMontoPagado(data.monto_pagado ? data.monto_pagado.toString() : '');
       setComprobantePago(data.url_comprobante_pago || null);
+
+      // Check if the current user is the owner of the property
+      if (user) {
+        const ownerCheck = await checkIsPropertyOwner(user.id, reservationId);
+        setIsOwner(ownerCheck);
+      }
     }
   };
   
@@ -129,14 +140,37 @@ export default function PaymentRecordScreen() {
       }
       
       Alert.alert(
-        'Éxito', 
+        'Éxito',
         'Pago registrado correctamente. El propietario revisará tu comprobante pronto.',
-        [{ text: 'OK', onPress: () => router.push('/reservations') }]
+        [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (error) {
       Alert.alert('Error', 'Ocurrió un error al registrar el pago');
       console.error(error);
     }
+  };
+
+  const handleVerifyPayment = async (approved) => {
+    const action = approved ? 'verificar' : 'rechazar';
+    Alert.alert(
+      `Confirmar ${action}`,
+      `¿Estás seguro de que quieres ${action} este pago?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            const { success, error } = await verifyPaymentAsOwner(paymentDetails.id, approved);
+            if (success) {
+              Alert.alert('Éxito', `El pago ha sido ${action}do.`);
+              loadData(); // Refresh data
+            } else {
+              Alert.alert('Error', `No se pudo ${action} el pago: ${error}`);
+            }
+          },
+        },
+      ]
+    );
   };
   
   if (isLoadingReservation) {
@@ -216,11 +250,28 @@ export default function PaymentRecordScreen() {
           ) : (
             <View style={styles.noProofContainer}>
               <FontAwesome name="file-image-o" size={40} color={COLORS.lightGray} />
-              <Text style={styles.noProofText}>No hay comprobante disponible</Text>
+              <Text style={styles.noProofText}>No se ha subido un comprobante.</Text>
             </View>
           )}
-          
-          {paymentDetails.estado_pago === 'rechazado' && (
+          {isOwner && paymentDetails?.estado_pago === 'pendiente' && (
+            <View style={styles.ownerActionsContainer}>
+              <TouchableOpacity 
+                style={[styles.ownerButton, styles.approveButton]}
+                onPress={() => handleVerifyPayment(true)}
+              >
+                <FontAwesome name="check" size={16} color={COLORS.white} />
+                <Text style={styles.ownerButtonText}>Verificar Pago</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.ownerButton, styles.rejectButton]}
+                onPress={() => handleVerifyPayment(false)}
+              >
+                <FontAwesome name="times" size={16} color={COLORS.white} />
+                <Text style={styles.ownerButtonText}>Rechazar Pago</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {paymentDetails?.estado_pago === 'rechazado' && !isOwner && (
             <TouchableOpacity
               style={styles.newPaymentButton}
               onPress={() => {
@@ -238,6 +289,25 @@ export default function PaymentRecordScreen() {
     );
   }
   
+  if (isOwner) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <FontAwesome name="arrow-left" size={18} color={COLORS.white} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Detalles del Pago</Text>
+        </View>
+        <View style={styles.paymentCard}>
+          <Text style={styles.detailLabel}>El estudiante aún no ha registrado un pago para esta reserva.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -644,5 +714,31 @@ const styles = StyleSheet.create({
   newPaymentButtonText: {
     color: COLORS.white,
     fontWeight: '500',
+  },
+  ownerActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.lightGray,
+  },
+  ownerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+  },
+  approveButton: {
+    backgroundColor: COLORS.secondary,
+  },
+  rejectButton: {
+    backgroundColor: COLORS.error,
+  },
+  ownerButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    marginLeft: 8,
   },
 });

@@ -172,6 +172,32 @@ const useNotificationStore = create((set, get) => ({
       set({ error: error.message, isLoading: false });
       return { error };
     }
+  },
+  
+  // Eliminar todas las notificaciones del usuario
+  deleteAllNotifications: async (userId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id_usuario_destinatario', userId);
+      
+      if (error) throw error;
+      
+      // Actualizar el estado local
+      set({ 
+        notifications: [], 
+        unreadCount: 0,
+        isLoading: false 
+      });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error eliminando notificaciones:', error.message);
+      set({ error: error.message, isLoading: false });
+      return { error };
+    }
   }
 }));
 

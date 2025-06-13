@@ -5,6 +5,7 @@ import { Text, View } from "react-native";
 import useAuthStore from "../store/authStore";
 import useNotificationStore from "../store/notificationStore";
 import usePropertyStore from "../store/propertyStore";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function RootLayout() {
   console.log("RootLayout inicializándose");
@@ -106,10 +107,13 @@ export default function RootLayout() {
   try {
     console.log("RootLayout - Renderizando la aplicación");
     return (
-      <>
+      <SafeAreaProvider>
         <StatusBar style="auto" />
-        <Slot />
-      </>
+        {/* SafeAreaView asegura padding en los bordes seguros */}
+        <SafeAreaView style={{ flex: 1 }} edges={["top", "right", "left", "bottom"]}>
+          <Slot />
+        </SafeAreaView>
+      </SafeAreaProvider>
     );
   } catch (error) {
     console.error("Error al renderizar RootLayout:", error);

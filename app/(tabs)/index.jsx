@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import usePropertyStore from '../../store/propertyStore';
@@ -10,10 +12,18 @@ export default function SearchScreen() {
   const [selectedType, setSelectedType] = useState('');
   const { properties, fetchProperties, isLoading, searchProperties } = usePropertyStore();
 
+  // Fetch properties when component mounts
   useEffect(() => {
-    // Fetch all available properties when the screen loads
     fetchProperties();
   }, []);
+  
+  // Refresh properties whenever the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProperties();
+      return () => {};
+    }, [])
+  );
 
   const handleSearch = () => {
     searchProperties({ 
@@ -36,7 +46,11 @@ export default function SearchScreen() {
           <Image 
             source={{ uri: item.galeria_fotos[0] }} 
             style={styles.propertyImage} 
-            resizeMode="cover"
+            contentFit="cover"
+            transition={200}
+            placeholder={{uri: null}}
+            cachePolicy="memory-disk"
+            onError={() => console.log(`Error loading image for property ${item.id}`)}
           />
         ) : (
           <View style={styles.noImageContainer}>
@@ -207,10 +221,13 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: 120,
     height: 120,
+    overflow: 'hidden',
+    backgroundColor: COLORS.background,
   },
   propertyImage: {
     width: '100%',
     height: '100%',
+    backgroundColor: COLORS.lightGray,
   },
   noImageContainer: {
     width: '100%',

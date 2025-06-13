@@ -39,5 +39,6 @@ export const AMENITIES = [
 // Payment methods
 export const PAYMENT_METHODS = [
   'transferencia bancaria',
-  'depósito',
+  'efectivo',
+  'pago móvil'
 ];
