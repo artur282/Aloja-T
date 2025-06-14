@@ -16,6 +16,7 @@ export default function ReservationsScreen() {
     fetchAllOwnerReservations,
     updateReservationStatus,
     cancelReservation,
+    clearCanceledAndRejectedReservations,
     isLoading 
   } = useReservationStore();
   
@@ -76,6 +77,34 @@ export default function ReservationsScreen() {
               Alert.alert('Error', `No se pudo ${statusText} la reserva`);
             } else {
               Alert.alert('Éxito', `Reserva ${newStatus} correctamente`);
+            }
+          }
+        },
+      ]
+    );
+  };
+  
+  const handleClearCanceledAndRejected = () => {
+    Alert.alert(
+      'Eliminar Reservas',
+      '¿Estás seguro que deseas eliminar todas las reservas canceladas y rechazadas?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Eliminar', 
+          style: 'destructive',
+          onPress: async () => {
+            console.log('Intentando eliminar reservas, rol:', user?.rol);
+            const { data, error } = await clearCanceledAndRejectedReservations(user.id, user?.rol === 'propietario');
+            if (error) {
+              Alert.alert('Error', 'No se pudieron eliminar las reservas');
+              console.error('Error al eliminar reservas:', error);
+            } else {
+              if (data.count === 0) {
+                Alert.alert('Información', 'No hay reservas canceladas o rechazadas para eliminar');
+              } else {
+                Alert.alert('Éxito', `Se eliminaron ${data.count} reservas correctamente`);
+              }
             }
           }
         },
@@ -143,30 +172,48 @@ export default function ReservationsScreen() {
         
         <View style={styles.reservationDetails}>
           <View style={styles.detailRow}>
-            <MaterialCommunityIcons name="calendar-range" size={16} color={COLORS.darkGray} />
+            <FontAwesome name="calendar" size={16} color={COLORS.primary} />
             <Text style={styles.detailText}>
               {new Date(item.fecha_llegada).toLocaleDateString()} - {new Date(item.fecha_salida).toLocaleDateString()}
             </Text>
           </View>
           
           <View style={styles.detailRow}>
-            <FontAwesome name="dollar" size={16} color={COLORS.darkGray} />
+            <FontAwesome name="clock-o" size={16} color={COLORS.primary} />
             <Text style={styles.detailText}>
-              Total: ${item.costo_total.toLocaleString()}
+              Duración: {item.duration_months} {Number(item.duration_months) === 1 ? 'mes' : 'meses'}
             </Text>
           </View>
           
           <View style={styles.detailRow}>
-            <FontAwesome name="credit-card" size={16} color={COLORS.darkGray} />
+            <FontAwesome name="dollar" size={16} color={COLORS.primary} />
             <Text style={styles.detailText}>
-              Estado de pago: {item.estado_pago ? 'Pagado' : 'Pendiente'}
+              Total: ${item.costo_total}
+            </Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <FontAwesome name="credit-card" size={16} color={COLORS.primary} />
+            <Text style={styles.detailText}>
+              Pago: {item.estado_pago ? 'Completado' : 'Pendiente'}
             </Text>
           </View>
         </View>
         
-        {/* Actions for student */}
+        {/* Botón para gestionar pagos mensuales - solo para reservas aceptadas */}
+        {isAccepted && (
+          <TouchableOpacity
+            style={styles.managePaymentsButton}
+            onPress={() => router.push(`/payment/manage?reservationId=${item.id}`)}
+          >
+            <FontAwesome name="money" size={16} color={COLORS.white} />
+            <Text style={styles.managePaymentsText}>Gestionar Pagos </Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Actions for students */}
         {activeTab === 'user' && isCancelable && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => handleCancelReservation(item.id)}
           >
@@ -174,17 +221,17 @@ export default function ReservationsScreen() {
           </TouchableOpacity>
         )}
         
-        {/* Actions for property owner */}
+        {/* Actions for property owners */}
         {activeTab === 'owner' && isPending && (
           <View style={styles.ownerActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.acceptButton}
               onPress={() => handleUpdateReservationStatus(item.id, 'aceptada')}
             >
               <Text style={styles.actionButtonText}>Aceptar</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.rejectButton}
               onPress={() => handleUpdateReservationStatus(item.id, 'rechazada')}
             >
@@ -204,6 +251,20 @@ export default function ReservationsScreen() {
           <View style={[styles.tab, styles.activeTab]}> 
             <Text style={[styles.tabText, styles.activeTabText]}>Solicitudes</Text>
           </View>
+        </View>
+      )}
+      
+      {/* Botón para limpiar reservas canceladas/rechazadas */}
+      {!isLoading && (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.clearButton}
+            onPress={handleClearCanceledAndRejected}
+            disabled={isLoading}
+          >
+            <FontAwesome name="trash" size={14} color={COLORS.white} />
+            <Text style={styles.clearButtonText}>Eliminar canceladas/rechazadas</Text>
+          </TouchableOpacity>
         </View>
       )}
       
@@ -401,6 +462,19 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '500',
   },
+  managePaymentsButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 5,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  managePaymentsText: {
+    color: COLORS.white,
+    fontWeight: '500',
+    marginLeft: 5,
+  },
   emptyContainer: {
     padding: 20,
     alignItems: 'center',
@@ -422,5 +496,24 @@ const styles = StyleSheet.create({
   exploreButtonText: {
     color: COLORS.white,
     fontWeight: '500',
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  clearButton: {
+    backgroundColor: COLORS.error,
+    borderRadius: 5,
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  clearButtonText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 5,
   },
 });

@@ -16,10 +16,11 @@ import * as ImagePicker from 'expo-image-picker';
 import useReservationStore from '../../store/reservationStore';
 import usePaymentStore from '../../store/paymentStore';
 import useAuthStore from '../../store/authStore';
+import supabase from '../../services/supabaseClient';
 import { COLORS, PAYMENT_METHODS } from '../../utils/constants';
 
 export default function PaymentRecordScreen() {
-  const { reservationId } = useLocalSearchParams();
+  const { reservationId, month } = useLocalSearchParams();
   const { selectedReservation, fetchReservationById, isLoading: isLoadingReservation } = useReservationStore();
   const { 
     paymentDetails, 
@@ -37,34 +38,124 @@ export default function PaymentRecordScreen() {
   const [comprobantePago, setComprobantePago] = useState(null);
   const [existingPayment, setExistingPayment] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(month ? parseInt(month) : 1);
+  const [monthlyAmount, setMonthlyAmount] = useState(0);
+  const [isPagoRechazado, setIsPagoRechazado] = useState(false);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
   
   useEffect(() => {
     if (reservationId) {
       loadData();
     }
-  }, [reservationId]);
+  }, [reservationId, month]);
   
   const loadData = async () => {
     // Get reservation details
     await fetchReservationById(reservationId);
     
-    // Check if payment already exists
-    const { data } = await getPaymentByReservationId(reservationId);
-    
-    if (data) {
-      setExistingPayment(true);
-      setMetodoPago(data.metodo_pago || '');
-      setMontoPagado(data.monto_pagado ? data.monto_pagado.toString() : '');
-      setComprobantePago(data.url_comprobante_pago || null);
-
-      // Check if the current user is the owner of the property
-      if (user) {
-        const ownerCheck = await checkIsPropertyOwner(user.id, reservationId);
-        setIsOwner(ownerCheck);
+    // Si se especifica un mes, cargar el pago específico de ese mes
+    if (month) {
+      await loadMonthlyPayment(parseInt(month));
+    } else {
+      // Check if payment already exists (comportamiento original)
+      const { data } = await getPaymentByReservationId(reservationId);
+      
+      if (data) {
+        setExistingPayment(true);
+        setMetodoPago(data.metodo_pago || '');
+        setMontoPagado(data.monto_pagado ? data.monto_pagado.toString() : '');
+        setComprobantePago(data.url_comprobante_pago || null);
+        setCurrentMonth(data.mes_numero || 1);
       }
+    }
+
+    // Check if the current user is the owner of the property
+    if (user) {
+      const ownerCheck = await checkIsPropertyOwner(user.id, reservationId);
+      setIsOwner(ownerCheck);
+    }
+  };
+
+  const loadMonthlyPayment = async (monthNumber) => {
+    try {
+      // Obtener la reserva para conocer el precio mensual
+      const { data: reservation, error: reservationError } = await supabase
+        .from('reservations')
+        .select('*, properties(titulo, precio_noche)')
+        .eq('id', reservationId)
+        .single();
+
+      if (reservationError) throw reservationError;
+
+      setMonthlyAmount(reservation?.properties?.precio_noche || 0);
+      setMontoPagado((reservation?.properties?.precio_noche || 0).toString());
+
+      // Buscar pago específico para este mes
+      const { data: monthPayment, error: paymentError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('id_reserva', reservationId)
+        .eq('mes_numero', monthNumber)
+        .single();
+
+      if (paymentError && paymentError.code !== 'PGRST116') {
+        throw paymentError;
+      }
+
+      if (monthPayment) {
+        // Si el pago está en estado pendiente_registro y el usuario no es propietario,
+        // permitimos registrar el pago (no mostramos como existingPayment)
+        if (monthPayment.estado_pago === 'pendiente_registro') {
+          // Verificar si es el estudiante (no propietario)
+          const ownerCheck = await checkIsPropertyOwner(user?.id, reservationId);
+          if (!ownerCheck) {
+            // Es estudiante, mostrar formulario de registro
+            setExistingPayment(false);
+          } else {
+            // Es propietario, mostrar como existente
+            setExistingPayment(true);
+          }
+        } else if (monthPayment.estado_pago === 'rechazado') {
+          // Los pagos rechazados deben permitir actualización
+          console.log('Cargando pago rechazado para reenvío');
+          setExistingPayment(false); // Mostrar formulario para actualizar
+          setIsPagoRechazado(true);
+          setMotivoRechazo(monthPayment.motivo_rechazo || 'No se especificó motivo');
+          
+          // Cargar los datos previos para facilitar la actualización
+          setMetodoPago(monthPayment.metodo_pago || '');
+          setMontoPagado(monthPayment.monto_pagado ? monthPayment.monto_pagado.toString() : '');
+          setComprobantePago(monthPayment.url_comprobante_pago || null);
+        } else {
+          // Para otros estados (verificado, pendiente), mostrar como existente
+          console.log(`Pago en estado ${monthPayment.estado_pago}, mostrando como existente`);
+          setExistingPayment(true);
+          setIsPagoRechazado(false);
+          setMotivoRechazo('');
+          
+          // Guardamos los datos del pago
+          setMetodoPago(monthPayment.metodo_pago || '');
+          setMontoPagado(monthPayment.monto_pagado ? monthPayment.monto_pagado.toString() : '');
+          setComprobantePago(monthPayment.url_comprobante_pago || null);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error loading monthly payment:', error);
+      Alert.alert('Error', 'No se pudo cargar la información del pago mensual');
     }
   };
   
+  useEffect(() => {
+    if (selectedReservation) {
+      // Establecer el monto según el precio mensual de la propiedad
+      setMonthlyAmount(selectedReservation?.properties?.precio_noche || 0);
+      if (!montoPagado) {
+        setMontoPagado((selectedReservation?.properties?.precio_noche || 0).toString());
+      }
+    }
+  }, [selectedReservation]);
+
   const handleSelectImage = async () => {
     try {
       // Request permission
@@ -129,7 +220,8 @@ export default function PaymentRecordScreen() {
         metodo_pago: metodoPago,
         monto_pagado: parseFloat(montoPagado),
         url_comprobante_pago: publicUrl,
-        estado_pago: 'pendiente'
+        estado_pago: 'pendiente',
+        mes_numero: currentMonth
       };
       
       const { error } = await createPayment(paymentData);
@@ -139,11 +231,17 @@ export default function PaymentRecordScreen() {
         return;
       }
       
-      Alert.alert(
-        'Éxito',
-        'Pago registrado correctamente. El propietario revisará tu comprobante pronto.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      // Para evitar las notificaciones en blanco, en lugar de usar Alert, mostrar mensajes directamente
+      // en la pantalla de gestión de pagos o usar un componente Toast si está disponible
+      console.log('Pago registrado correctamente, navegando a gestión de pagos');
+      
+      // Si es un pago rechazado que se está reenviando, loguear para debug
+      if (isPagoRechazado) {
+        console.log('Actualizando pago rechazado correctamente');
+      }
+      
+      // Navegación más directa y rápida para evitar problemas
+      router.replace(`/payment/manage?reservationId=${reservationId}`);
     } catch (error) {
       Alert.alert('Error', 'Ocurrió un error al registrar el pago');
       console.error(error);
@@ -214,11 +312,13 @@ export default function PaymentRecordScreen() {
             styles.statusBadge,
             paymentDetails.estado_pago === 'pendiente' ? styles.pendingBadge :
             paymentDetails.estado_pago === 'verificado' ? styles.verifiedBadge :
+            paymentDetails.estado_pago === 'pendiente_registro' ? styles.pendingRegBadge :
             styles.rejectedBadge
           ]}>
             <Text style={styles.statusText}>
               {paymentDetails.estado_pago === 'pendiente' ? 'Pendiente de verificación' :
                paymentDetails.estado_pago === 'verificado' ? 'Verificado' :
+               paymentDetails.estado_pago === 'pendiente_registro' ? 'Pendiente de registro' :
                'Rechazado'}
             </Text>
           </View>
@@ -238,6 +338,11 @@ export default function PaymentRecordScreen() {
             <Text style={styles.detailValue}>
               {new Date(paymentDetails.created_at).toLocaleDateString()}
             </Text>
+          </View>
+          
+          <View style={styles.paymentDetails}>
+            <Text style={styles.detailLabel}>Mes de pago:</Text>
+            <Text style={styles.detailValue}>{paymentDetails.mes_numero}</Text>
           </View>
           
           <Text style={styles.proofTitle}>Comprobante de pago:</Text>
@@ -271,7 +376,7 @@ export default function PaymentRecordScreen() {
               </TouchableOpacity>
             </View>
           )}
-          {paymentDetails?.estado_pago === 'rechazado' && !isOwner && (
+          {(paymentDetails?.estado_pago === 'rechazado' || paymentDetails?.estado_pago === 'pendiente_registro') && !isOwner && (
             <TouchableOpacity
               style={styles.newPaymentButton}
               onPress={() => {
@@ -281,7 +386,9 @@ export default function PaymentRecordScreen() {
                 setComprobantePago(null);
               }}
             >
-              <Text style={styles.newPaymentButtonText}>Registrar nuevo pago</Text>
+              <Text style={styles.newPaymentButtonText}>
+                {paymentDetails?.estado_pago === 'rechazado' ? 'Reenviar pago' : 'Registrar pago'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -317,7 +424,24 @@ export default function PaymentRecordScreen() {
         >
           <FontAwesome name="arrow-left" size={18} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Registrar Pago</Text>
+        <Text style={styles.headerTitle}>{isPagoRechazado ? 'Actualizar Pago Rechazado' : 'Registrar Pago'}</Text>
+      </View>
+      
+      <View style={styles.reservationCard}>
+        <Text style={styles.propertyTitle}>
+          {selectedReservation?.properties?.titulo}
+        </Text>
+        <Text style={styles.reservationInfo}>
+          Mes {currentMonth} de {selectedReservation?.duration_months || 1}
+        </Text>
+        
+        {isPagoRechazado && (
+          <View style={styles.rejectionInfo}>
+            <Text style={styles.rejectionTitle}>Motivo del rechazo:</Text>
+            <Text style={styles.rejectionText}>{motivoRechazo}</Text>
+            <Text style={styles.rejectionHint}>Por favor actualiza tu comprobante de pago y envíalo nuevamente.</Text>
+          </View>
+        )}
       </View>
       
       <View style={styles.reservationCard}>
@@ -362,18 +486,14 @@ export default function PaymentRecordScreen() {
         </View>
         
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Monto pagado *</Text>
-          <View style={styles.amountInput}>
+          <Text style={styles.label}>Monto pagado (fijo)</Text>
+          <View style={[styles.amountInput, { backgroundColor: COLORS.background }]}>
             <Text style={styles.amountPrefix}>$</Text>
-            <TextInput
-              style={styles.amountTextInput}
-              placeholder="0.00"
-              value={montoPagado}
-              onChangeText={setMontoPagado}
-              keyboardType="numeric"
-              returnKeyType="done"
-            />
+            <Text style={styles.amountValue}>{monthlyAmount.toLocaleString()}</Text>
           </View>
+          <Text style={styles.helperText}>
+            El monto mensual es fijo y se calcula automáticamente
+          </Text>
         </View>
         
         <View style={styles.formGroup}>
@@ -405,6 +525,16 @@ export default function PaymentRecordScreen() {
             Sube una foto clara del comprobante de transferencia o depósito.
           </Text>
         </View>
+        
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Mes de pago (fijo)</Text>
+          <View style={[styles.monthInput, { backgroundColor: COLORS.background }]}>
+            <Text style={styles.monthValue}>Mes {currentMonth}</Text>
+          </View>
+          <Text style={styles.helperText}>
+            El mes de pago es fijo y se determina automáticamente
+          </Text>
+        </View>
       </View>
       
       <TouchableOpacity
@@ -433,6 +563,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  rejectionInfo: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  rejectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+    marginBottom: 5,
+  },
+  rejectionText: {
+    fontSize: 14,
+    color: '#212121',
+    marginBottom: 8,
+  },
+  rejectionHint: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#616161',
   },
   loadingContainer: {
     flex: 1,
@@ -643,17 +797,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statusBadge: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 4,
     alignSelf: 'flex-start',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 15,
+    marginBottom: 10,
   },
   pendingBadge: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.warning,
+  },
+  pendingRegBadge: {
+    backgroundColor: COLORS.lightGray,
   },
   verifiedBadge: {
-    backgroundColor: COLORS.secondary,
+    backgroundColor: COLORS.success,
   },
   rejectedBadge: {
     backgroundColor: COLORS.error,
@@ -740,5 +897,30 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  monthInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 5,
+    padding: 12,
+  },
+  monthTextInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+  monthValue: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.text,
+    paddingVertical: 5,
+    fontWeight: '500',
+  },
+  amountValue: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.text,
+    paddingVertical: 5,
+    fontWeight: '500',
   },
 });

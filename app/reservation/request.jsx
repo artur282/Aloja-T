@@ -110,7 +110,11 @@ export default function ReservationRequestScreen() {
       const { data, error } = await createReservation(reservationData);
       
       if (error) {
-        Alert.alert('Error', 'No se pudo crear la reserva');
+        // Mostramos el mensaje específico si ya tiene una solicitud pendiente
+        const errorMsg = error.message && error.message.includes('solicitud de reserva pendiente') 
+          ? error.message 
+          : 'No se pudo crear la reserva';
+        Alert.alert('Aviso', errorMsg);
         return;
       }
       

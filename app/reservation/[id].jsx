@@ -26,10 +26,6 @@ export default function ReservationDetailScreen() {
     updateReservationStatus,
     isLoading,
   } = useReservationStore();
-  const { getPaymentByReservationId, isLoading: isLoadingPayment } =
-    usePaymentStore();
-
-  const [paymentExists, setPaymentExists] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -40,10 +36,6 @@ export default function ReservationDetailScreen() {
   const loadReservationData = async () => {
     // Load reservation data
     await fetchReservationById(id);
-
-    // Check if payment exists
-    const { data } = await getPaymentByReservationId(id);
-    setPaymentExists(!!data);
   };
 
   const handleCancelReservation = () => {
@@ -323,46 +315,7 @@ export default function ReservationDetailScreen() {
         </View>
       </View>
 
-      {/* Payment section */}
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Información de Pago</Text>
-
-        {isPaid || paymentExists ? (
-          <View style={styles.paymentInfo}>
-            <MaterialIcons
-              name="payment"
-              size={24}
-              color={isPaid ? COLORS.secondary : COLORS.accent}
-            />
-            <Text style={styles.paymentInfoText}>
-              {isPaid
-                ? "Pago registrado y verificado"
-                : "Pago registrado, pendiente de verificación"}
-            </Text>
-            <TouchableOpacity
-              style={styles.viewPaymentButton}
-              onPress={handleViewPayment}
-            >
-              <Text style={styles.viewPaymentText}>Ver detalles</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.noPaymentContainer}>
-            <MaterialIcons name="payment" size={40} color={COLORS.lightGray} />
-            <Text style={styles.noPaymentText}>
-              No se ha registrado ningún pago
-            </Text>
-            {isReservationCreator && isAccepted && (
-              <TouchableOpacity
-                style={styles.recordPaymentButton}
-                onPress={handleRecordPayment}
-              >
-                <Text style={styles.recordPaymentText}>Registrar Pago</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-      </View>
+      {/* Espacio para información adicional si es necesario */}
 
       {/* Actions */}
       {isPending && isReservationCreator && (

@@ -139,10 +139,23 @@ export default function AddPropertyScreen() {
         }
       }
       
+      // Clear all form fields
+      setTitulo('');
+      setDescripcion('');
+      setDireccion('');
+      setPrecioMes('');
+      setTipoPropiedad('');
+      setCapacidad('');
+      setSelectedAmenities([]);
+      setImages([]);
+      
       Alert.alert(
         'Éxito', 
-        'Propiedad creada correctamente',
-        [{ text: 'OK', onPress: () => router.back() }]
+        'Propiedad creada correctamente. Puedes agregar otra o volver a la lista de propiedades.',
+        [
+          { text: 'Agregar otra', style: 'default' },
+          { text: 'Volver a la lista', onPress: () => router.back() }
+        ]
       );
     } catch (error) {
       Alert.alert('Error', 'Ocurrió un error al crear la propiedad');

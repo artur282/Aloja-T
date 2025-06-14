@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import supabase from '../services/supabaseClient';
-import { verifyPaymentByOwner, isPropertyOwner } from '../services/paymentService';
+import { 
+  verifyPaymentByOwner, 
+  isPropertyOwner, 
+  getAllPaymentsByReservation, 
+  getPaymentByMonth, 
+  updateReservationPaymentStatus 
+} from '../services/paymentService';
 
 const usePaymentStore = create((set, get) => ({
   paymentDetails: null,
@@ -44,17 +50,22 @@ const usePaymentStore = create((set, get) => ({
         monthMap.set(p.mes_numero, p);
       });
 
-      let targetMonth = null;
-      // 3. Buscar el primer mes sin pago verificado o pendiente
-      for (let m = 1; m <= totalMonths; m++) {
-        const pay = monthMap.get(m);
-        if (!pay) {
-          targetMonth = m; // mes sin registro
-          break;
-        }
-        if (pay.estado_pago === 'rechazado') {
-          targetMonth = m; // mes con pago rechazado (se puede reintentar)
-          break;
+      // Si se especificó un mes específico en los datos, usar ese
+      let targetMonth = paymentData.mes_numero || null;
+      
+      // Si no se especificó un mes, buscar el próximo mes disponible
+      if (!targetMonth) {
+        // 3. Buscar el primer mes sin pago verificado o pendiente
+        for (let m = 1; m <= totalMonths; m++) {
+          const pay = monthMap.get(m);
+          if (!pay) {
+            targetMonth = m; // mes sin registro
+            break;
+          }
+          if (pay.estado_pago === 'rechazado' || pay.estado_pago === 'pendiente_registro') {
+            targetMonth = m; // mes que se puede actualizar
+            break;
+          }
         }
       }
 
@@ -73,7 +84,8 @@ const usePaymentStore = create((set, get) => ({
         motivo_rechazo: null,
       };
 
-      if (existingForMonth && existingForMonth.estado_pago === 'rechazado') {
+      // Permitir actualizar pagos rechazados o pendientes de registro
+      if (existingForMonth && (existingForMonth.estado_pago === 'rechazado' || existingForMonth.estado_pago === 'pendiente_registro')) {
         // 4.a Actualizar pago rechazado con la nueva info
         const { data: updated, error: updateError } = await supabase
           .from('payments')
@@ -207,6 +219,54 @@ const usePaymentStore = create((set, get) => ({
     } catch (error) {
       console.error('Error checking property owner:', error.message);
       return false;
+    }
+  },
+
+  // Get all payments for a reservation
+  getAllPaymentsByReservation: async (reservationId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { success, data, error } = await getAllPaymentsByReservation(reservationId);
+      
+      if (!success) throw new Error(error);
+      
+      set({ isLoading: false });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching all payments:', error.message);
+      set({ error: error.message, isLoading: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Get payment for specific month
+  getPaymentByMonth: async (reservationId, monthNumber) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { success, data, error } = await getPaymentByMonth(reservationId, monthNumber);
+      
+      if (!success) throw new Error(error);
+      
+      set({ paymentDetails: data, isLoading: false });
+      return { success: true, data };
+    } catch (error) {
+      console.error('Error fetching payment by month:', error.message);
+      set({ error: error.message, isLoading: false });
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Update reservation payment status
+  updateReservationPaymentStatus: async (reservationId) => {
+    try {
+      const { success, allPaid, error } = await updateReservationPaymentStatus(reservationId);
+      
+      if (!success) throw new Error(error);
+      
+      return { success: true, allPaid };
+    } catch (error) {
+      console.error('Error updating reservation payment status:', error.message);
+      return { success: false, error: error.message };
     }
   }
 }));

@@ -6,10 +6,51 @@ import supabase from './supabaseClient';
 // Record payment in database after user submits payment proof
 export const recordPayment = async (paymentData) => {
   try {
+    // Verificar si ya existe un pago para este mes específico
+    if (paymentData.mes_numero) {
+      const { data: existingPayment, error: checkError } = await supabase
+        .from('payments')
+        .select('id, estado_pago')
+        .eq('id_reserva', paymentData.id_reserva)
+        .eq('mes_numero', paymentData.mes_numero)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      // Si existe un pago para este mes
+      if (existingPayment) {
+        // Si está rechazado, lo actualizamos
+        if (existingPayment.estado_pago === 'rechazado') {
+          const { data, error } = await supabase
+            .from('payments')
+            .update({
+              ...paymentData,
+              estado_pago: 'pendiente',
+              verificado_por_propietario: null,
+              fecha_verificacion: null,
+              motivo_rechazo: null,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingPayment.id)
+            .select()
+            .single();
+            
+          if (error) throw error;
+          return { success: true, data };
+        } else {
+          // Si ya existe y no está rechazado, no permitir duplicados
+          throw new Error('Ya existe un pago registrado para este mes');
+        }
+      }
+    }
+
     // Set default status to 'pendiente' (pending verification)
     const paymentWithStatus = {
       ...paymentData,
-      estado_pago: 'pendiente'
+      estado_pago: 'pendiente',
+      mes_numero: paymentData.mes_numero || 1
     };
 
     const { data, error } = await supabase
@@ -25,6 +66,86 @@ export const recordPayment = async (paymentData) => {
     return { success: true, data };
   } catch (error) {
     console.error('Error recording payment:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get all payments for a reservation
+export const getAllPaymentsByReservation = async (reservationId) => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id_reserva', reservationId)
+      .order('mes_numero', { ascending: true });
+
+    if (error) throw error;
+    
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Get payment for specific month
+export const getPaymentByMonth = async (reservationId, monthNumber) => {
+  try {
+    const { data, error } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('id_reserva', reservationId)
+      .eq('mes_numero', monthNumber)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error fetching payment by month:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Update reservation payment status based on all monthly payments
+export const updateReservationPaymentStatus = async (reservationId) => {
+  try {
+    // Get reservation duration
+    const { data: reservation, error: reservationError } = await supabase
+      .from('reservations')
+      .select('duration_months')
+      .eq('id', reservationId)
+      .single();
+
+    if (reservationError) throw reservationError;
+
+    const totalMonths = reservation.duration_months || 1;
+
+    // Get all verified payments
+    const { data: verifiedPayments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('mes_numero')
+      .eq('id_reserva', reservationId)
+      .eq('estado_pago', 'verificado');
+
+    if (paymentsError) throw paymentsError;
+
+    // Check if all months are paid
+    const allPaid = verifiedPayments.length === totalMonths;
+
+    // Update reservation status
+    const { error: updateError } = await supabase
+      .from('reservations')
+      .update({ estado_pago: allPaid })
+      .eq('id', reservationId);
+
+    if (updateError) throw updateError;
+
+    return { success: true, allPaid };
+  } catch (error) {
+    console.error('Error updating reservation payment status:', error);
     return { success: false, error: error.message };
   }
 };
@@ -66,13 +187,35 @@ export const verifyPaymentByOwner = async (paymentId, approved = true, rejection
     if (error) throw error;
     
     // Update the reservation payment status as well
-    const reservationStatus = approved ? true : false;
-    const { error: reservationError } = await supabase
+    const { data: reservation, error: reservationError } = await supabase
       .from('reservations')
-      .update({ estado_pago: reservationStatus })
-      .eq('id', paymentData.id_reserva);
-    
+      .select('duration_months')
+      .eq('id', paymentData.id_reserva)
+      .single();
+
     if (reservationError) throw reservationError;
+
+    const totalMonths = reservation.duration_months || 1;
+
+    // Get all verified payments
+    const { data: verifiedPayments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('mes_numero')
+      .eq('id_reserva', paymentData.id_reserva)
+      .eq('estado_pago', 'verificado');
+
+    if (paymentsError) throw paymentsError;
+
+    // Check if all months are paid
+    const allPaid = verifiedPayments.length === totalMonths;
+
+    // Update reservation status
+    const { error: updateError } = await supabase
+      .from('reservations')
+      .update({ estado_pago: allPaid })
+      .eq('id', paymentData.id_reserva);
+
+    if (updateError) throw updateError;
     
     // Create notification for the student
     await createPaymentVerificationNotification(paymentData.id_reserva, approved);
