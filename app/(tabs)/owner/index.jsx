@@ -128,7 +128,8 @@ export default function OwnerPropertiesScreen() {
         </Text>
         
         <Text style={styles.propertyLocation} numberOfLines={1}>
-          <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> {item.direccion}
+          <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> 
+          {item.ciudad ? `${item.ciudad} - ` : ""}{item.direccion}
         </Text>
         
         <View style={styles.propertyStats}>

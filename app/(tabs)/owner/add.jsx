@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -8,7 +8,10 @@ import {
   ScrollView, 
   ActivityIndicator, 
   Alert,
-  Image 
+  Image,
+  Modal,
+  FlatList,
+  SafeAreaView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -16,6 +19,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import useAuthStore from '../../../store/authStore';
 import usePropertyStore from '../../../store/propertyStore';
 import { COLORS, PROPERTY_TYPES, AMENITIES } from '../../../utils/constants';
+import CIUDADES from '../../../data/ciudades.json';
 
 export default function AddPropertyScreen() {
   const { user } = useAuthStore();
@@ -42,6 +46,22 @@ export default function AddPropertyScreen() {
   const [capacidad, setCapacidad] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [images, setImages] = useState([]);
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  
+  // Modals para selección
+  const [showStatesModal, setShowStatesModal] = useState(false);
+  const [showCitiesModal, setShowCitiesModal] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  
+  // Lista de estados (extraídos de las claves del objeto CIUDADES)
+  const estados = useMemo(() => Object.keys(CIUDADES).sort(), []);
+  
+  // Lista de ciudades del estado seleccionado
+  const ciudadesDelEstado = useMemo(() => {
+    if (!estadoSeleccionado) return [];
+    return CIUDADES[estadoSeleccionado] || [];
+  }, [estadoSeleccionado]);
   
   const handleSelectImages = async () => {
     try {
@@ -102,6 +122,11 @@ export default function AddPropertyScreen() {
       return false;
     }
     
+    if (!ciudad) {
+      Alert.alert('Error', 'La ciudad es obligatoria');
+      return false;
+    }
+    
     return true;
   };
   
@@ -119,7 +144,8 @@ export default function AddPropertyScreen() {
         tipo_propiedad: tipoPropiedad,
         servicios: selectedAmenities,
         capacidad: capacidad ? parseInt(capacidad) : null,
-        estado: 'disponible'
+        estado: 'disponible',
+        ciudad
       };
       
       // Create property first
@@ -139,7 +165,7 @@ export default function AddPropertyScreen() {
         }
       }
       
-      // Clear all form fields
+      // Reset form
       setTitulo('');
       setDescripcion('');
       setDireccion('');
@@ -148,6 +174,8 @@ export default function AddPropertyScreen() {
       setCapacidad('');
       setSelectedAmenities([]);
       setImages([]);
+      setEstadoSeleccionado('');
+      setCiudad('');
       
       Alert.alert(
         'Éxito', 
@@ -199,12 +227,51 @@ export default function AddPropertyScreen() {
           </View>
           
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Dirección *</Text>
+            <Text style={styles.label}>Ubicación</Text>
+            <View style={styles.locationSelectors}>
+              {/* Estado selector */}
+              <View style={[styles.selectorContainer, {marginRight: 10}]}>
+                <Text style={styles.sublabel}>Estado</Text>
+                <TouchableOpacity 
+                  style={styles.selector}
+                  onPress={() => setShowStatesModal(true)}
+                >
+                  <Text style={estadoSeleccionado ? styles.selectorText : styles.selectorPlaceholder}>
+                    {estadoSeleccionado || 'Seleccionar estado'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Ciudad selector (activo solo si hay estado seleccionado) */}
+              <View style={styles.selectorContainer}>
+                <Text style={styles.sublabel}>Ciudad</Text>
+                <TouchableOpacity 
+                  style={[styles.selector, !estadoSeleccionado && styles.disabledSelector]}
+                  disabled={!estadoSeleccionado}
+                  onPress={() => {
+                    if (ciudadesDelEstado.length > 0) {
+                      setSearchText('');
+                      setShowCitiesModal(true);
+                    }
+                  }}
+                >
+                  <Text style={ciudad ? styles.selectorText : styles.selectorPlaceholder}>
+                    {ciudad || 'Seleccionar ciudad'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Dirección</Text>
             <TextInput
               style={styles.input}
-              placeholder="Dirección completa"
               value={direccion}
               onChangeText={setDireccion}
+              placeholder="Dirección completa"
             />
           </View>
         </View>
@@ -339,6 +406,105 @@ export default function AddPropertyScreen() {
           )}
         </TouchableOpacity>
       </View>
+      {/* Modal para selección de estados */}
+      <Modal
+        visible={showStatesModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowStatesModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar Estado</Text>
+              <TouchableOpacity onPress={() => setShowStatesModal(false)}>
+                <MaterialIcons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <FlatList
+              data={estados}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setEstadoSeleccionado(item);
+                    setCiudad('');
+                    setShowStatesModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                  {estadoSeleccionado === item && (
+                    <MaterialIcons name="check" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Modal para selección de ciudades */}
+      <Modal
+        visible={showCitiesModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCitiesModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ciudades en {estadoSeleccionado}</Text>
+              <TouchableOpacity onPress={() => setShowCitiesModal(false)}>
+                <MaterialIcons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.searchContainer}>
+              <TextInput 
+                style={styles.searchInput}
+                placeholder="Buscar ciudad..."
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+              {searchText ? (
+                <TouchableOpacity onPress={() => setSearchText('')}>
+                  <MaterialIcons name="close" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              ) : (
+                <MaterialIcons name="search" size={20} color={COLORS.darkGray} />
+              )}
+            </View>
+            
+            <FlatList
+              data={ciudadesDelEstado.filter(city => 
+                city.toLowerCase().includes(searchText.toLowerCase())
+              )}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setCiudad(item);
+                    setShowCitiesModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                  {ciudad === item && (
+                    <MaterialIcons name="check" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyList}>
+                  {searchText ? "No se encontró ninguna ciudad" : "No hay ciudades disponibles"}
+                </Text>
+              }
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -377,6 +543,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 15,
+  },
+  locationSelectors: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  selectorContainer: {
+    flex: 1,
+  },
+  sublabel: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  selector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 5,
+    padding: 12,
+  },
+  disabledSelector: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.5,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  selectorPlaceholder: {
+    fontSize: 16,
+    color: COLORS.darkGray,
   },
   inputGroup: {
     marginBottom: 15,
@@ -512,5 +710,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 10,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    margin: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 45,
+    fontSize: 16,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  emptyList: {
+    padding: 20,
+    textAlign: 'center',
+    color: COLORS.darkGray,
   },
 });

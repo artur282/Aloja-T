@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  FlatList,
+  SafeAreaView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -16,6 +19,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import useAuthStore from '../../../../store/authStore';
 import usePropertyStore from '../../../../store/propertyStore';
 import { COLORS, PROPERTY_TYPES, AMENITIES } from '../../../../utils/constants';
+import CIUDADES from '../../../../data/ciudades.json';
 
 export default function EditPropertyScreen() {
   const { id: propertyId } = useLocalSearchParams();
@@ -55,6 +59,34 @@ export default function EditPropertyScreen() {
   const [capacidad, setCapacidad] = useState('');
   const [selectedAmenities, setSelectedAmenities] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  
+  // Modals para selección
+  const [showStatesModal, setShowStatesModal] = useState(false);
+  const [showCitiesModal, setShowCitiesModal] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  
+  // Lista de estados (extraídos de las claves del objeto CIUDADES)
+  const estados = useMemo(() => Object.keys(CIUDADES).sort(), []);
+  
+  // Lista de ciudades del estado seleccionado
+  const ciudadesDelEstado = useMemo(() => {
+    if (!estadoSeleccionado) return [];
+    return CIUDADES[estadoSeleccionado] || [];
+  }, [estadoSeleccionado]);
+  
+  // Función para encontrar el estado correspondiente a una ciudad
+  const encontrarEstadoPorCiudad = (nombreCiudad) => {
+    if (!nombreCiudad) return '';
+    
+    for (const estado in CIUDADES) {
+      if (CIUDADES[estado].includes(nombreCiudad)) {
+        return estado;
+      }
+    }
+    return '';
+  };
 
   // Populate form when property fetched
   useEffect(() => {
@@ -66,6 +98,15 @@ export default function EditPropertyScreen() {
       setTipoPropiedad(selectedProperty.tipo_propiedad || '');
       setCapacidad(selectedProperty.capacidad ? String(selectedProperty.capacidad) : '');
       setSelectedAmenities(selectedProperty.servicios || []);
+      
+      // Si la propiedad tiene una ciudad asignada, buscar su estado correspondiente
+      if (selectedProperty.ciudad) {
+        setCiudad(selectedProperty.ciudad);
+        const estado = encontrarEstadoPorCiudad(selectedProperty.ciudad);
+        if (estado) {
+          setEstadoSeleccionado(estado);
+        }
+      }
     }
   }, [selectedProperty]);
 
@@ -119,13 +160,17 @@ export default function EditPropertyScreen() {
       Alert.alert('Error', 'El precio por mes debe ser un número válido');
       return false;
     }
+    if (!ciudad) {
+      Alert.alert('Error', 'La ciudad es obligatoria');
+      return false;
+    }
     return true;
   };
 
   const handleUpdateProperty = async () => {
     if (!validateForm()) return;
     try {
-      const propertyData = {
+      const updatedData = {
         titulo,
         descripcion,
         direccion,
@@ -133,8 +178,9 @@ export default function EditPropertyScreen() {
         tipo_propiedad: tipoPropiedad,
         servicios: selectedAmenities,
         capacidad: capacidad ? parseInt(capacidad) : null,
+        ciudad,
       };
-      const { error } = await updateProperty(propertyId, propertyData);
+      const { error } = await updateProperty(propertyId, updatedData);
       if (error) {
         Alert.alert('Error', 'No se pudo actualizar la propiedad');
         return;
@@ -183,9 +229,53 @@ export default function EditPropertyScreen() {
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Dirección</Text>
-            <TextInput style={styles.input} value={direccion} onChangeText={setDireccion} />
+            <Text style={styles.label}>Ubicación</Text>
+            <View style={styles.locationSelectors}>
+              {/* Estado selector */}
+              <View style={[styles.selectorContainer, {marginRight: 10}]}>
+                <Text style={styles.sublabel}>Estado</Text>
+                <TouchableOpacity 
+                  style={styles.selector}
+                  onPress={() => setShowStatesModal(true)}
+                >
+                  <Text style={estadoSeleccionado ? styles.selectorText : styles.selectorPlaceholder}>
+                    {estadoSeleccionado || 'Seleccionar estado'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              </View>
+              
+              {/* Ciudad selector (activo solo si hay estado seleccionado) */}
+              <View style={styles.selectorContainer}>
+                <Text style={styles.sublabel}>Ciudad</Text>
+                <TouchableOpacity 
+                  style={[styles.selector, !estadoSeleccionado && styles.disabledSelector]}
+                  disabled={!estadoSeleccionado}
+                  onPress={() => {
+                    if (ciudadesDelEstado.length > 0) {
+                      setSearchText('');
+                      setShowCitiesModal(true);
+                    }
+                  }}
+                >
+                  <Text style={ciudad ? styles.selectorText : styles.selectorPlaceholder}>
+                    {ciudad || 'Seleccionar ciudad'}
+                  </Text>
+                  <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Dirección</Text>
+            <TextInput
+              style={styles.input}
+              value={direccion}
+              onChangeText={setDireccion}
+              placeholder="Dirección completa"
+            />
+          </View>
+          
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Precio por mes</Text>
             <View style={styles.priceInput}>
@@ -355,6 +445,92 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 15,
+  },
+  locationSelectors: {
+    flexDirection: 'row',
+    marginBottom: 15,
+  },
+  selectorContainer: {
+    flex: 1,
+  },
+  sublabel: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 5,
+  },
+  selector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 5,
+    padding: 12,
+  },
+  disabledSelector: {
+    backgroundColor: COLORS.lightGray,
+    opacity: 0.5,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  selectorPlaceholder: {
+    fontSize: 16,
+    color: COLORS.darkGray,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    margin: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 45,
+    fontSize: 16,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  emptyList: {
+    padding: 20,
+    textAlign: 'center',
+    color: COLORS.darkGray,
   },
   inputGroup: {
     marginBottom: 15,

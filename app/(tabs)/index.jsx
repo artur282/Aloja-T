@@ -5,11 +5,15 @@ import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import usePropertyStore from '../../store/propertyStore';
-import { COLORS, PROPERTY_TYPES } from '../../utils/constants';
+import { COLORS, PROPERTY_TYPES, SORT_OPTIONS } from '../../utils/constants';
+import AdvancedFilters from '../../components/AdvancedFilters';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [currentFilters, setCurrentFilters] = useState({});
+  const [activeFiltersCount, setActiveFiltersCount] = useState(0);
   const { properties, fetchProperties, isLoading, searchProperties } = usePropertyStore();
 
   // Fetch properties when component mounts
@@ -25,15 +29,53 @@ export default function SearchScreen() {
     }, [])
   );
 
+  // Count active filters
+  useEffect(() => {
+    let count = 0;
+    if (currentFilters.location) count++;
+    if (currentFilters.estado) count++;
+    if (currentFilters.ciudad) count++;
+    if (currentFilters.type) count++;
+    if (currentFilters.minPrice) count++;
+    if (currentFilters.maxPrice && currentFilters.maxPrice < 50000) count++;
+    if (currentFilters.capacity && currentFilters.capacity > 1) count++;
+    if (currentFilters.amenities && currentFilters.amenities.length > 0) count++;
+    if (currentFilters.sortBy && currentFilters.sortBy !== 'newest') count++;
+    setActiveFiltersCount(count);
+  }, [currentFilters]);
+
   const handleSearch = () => {
-    searchProperties({ 
-      location: searchQuery, 
-      type: selectedType 
-    });
+    const searchParams = {
+      location: searchQuery,
+      type: selectedType,
+      ...currentFilters
+    };
+    searchProperties(searchParams);
+  };
+
+  const handleAdvancedFilters = (filters) => {
+    setCurrentFilters(filters);
+    setSearchQuery(filters.location || '');
+    setSelectedType(filters.type || '');
+    
+    // Apply the filters immediately
+    searchProperties(filters);
+  };
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('');
+    setSelectedType('');
+    setCurrentFilters({});
+    fetchProperties();
   };
 
   const handlePropertyPress = (propertyId) => {
     router.push(`/property/${propertyId}`);
+  };
+
+  const getCurrentSortLabel = () => {
+    const sortOption = SORT_OPTIONS.find(option => option.value === currentFilters.sortBy);
+    return sortOption ? sortOption.label : 'Más recientes';
   };
 
   const renderPropertyItem = ({ item }) => (
@@ -65,12 +107,20 @@ export default function SearchScreen() {
           {item.titulo}
         </Text>
         <Text style={styles.propertyLocation} numberOfLines={1}>
-          <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> {item.direccion}
+          <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} /> 
+          {item.ciudad ? `${item.ciudad} - ` : ""}{item.direccion}
         </Text>
         <View style={styles.propertyDetails}>
-          <Text style={styles.propertyType}>
-            {item.tipo_propiedad || 'Propiedad'}
-          </Text>
+          <View style={styles.propertyMeta}>
+            <Text style={styles.propertyType}>
+              {item.tipo_propiedad || 'Propiedad'}
+            </Text>
+            {item.capacidad && (
+              <Text style={styles.propertyCapacity}>
+                <FontAwesome name="users" size={12} color={COLORS.darkGray} /> {item.capacidad}
+              </Text>
+            )}
+          </View>
           <Text style={styles.propertyPrice}>
             ${item.precio_noche.toLocaleString()} <Text style={styles.perNight}>/ Mes</Text>
           </Text>
@@ -82,44 +132,47 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
-        <View style={styles.inputContainer}>
-          <FontAwesome name="search" size={18} color={COLORS.darkGray} style={styles.inputIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por ubicación..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
-          />
-        </View>
-        
-        <View style={styles.typesContainer}>
+        {/* Botón de Filtros Avanzados Único */}
+        <View style={[styles.inputContainer, { justifyContent: 'flex-end' }]}> 
           <TouchableOpacity 
-            style={[styles.typeButton, selectedType === '' && styles.typeButtonActive]}
-            onPress={() => setSelectedType('')}
+            style={styles.filterButton}
+            onPress={() => setShowAdvancedFilters(true)}
           >
-            <Text style={selectedType === '' ? styles.typeTextActive : styles.typeText}>
-              Todos
-            </Text>
+            <FontAwesome name="filter" size={18} color={COLORS.primary} />
+            {activeFiltersCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
-          
-          {PROPERTY_TYPES.map((type) => (
-            <TouchableOpacity 
-              key={type}
-              style={[styles.typeButton, selectedType === type && styles.typeButtonActive]}
-              onPress={() => setSelectedType(type)}
-            >
-              <Text style={selectedType === type ? styles.typeTextActive : styles.typeText}>
-                {type.charAt(0).toUpperCase() + type.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
-      </View>
       
+
+        {/* Active Filters Summary */}
+        {activeFiltersCount > 0 && (
+          <View style={styles.activeFiltersContainer}>
+            <View style={styles.activeFiltersInfo}>
+              <Text style={styles.activeFiltersText}>
+                {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} activo{activeFiltersCount > 1 ? 's' : ''}
+              </Text>
+              {currentFilters.sortBy && (
+                <Text style={styles.sortInfo}>• {getCurrentSortLabel()}</Text>
+              )}
+            </View>
+            <TouchableOpacity onPress={handleClearAllFilters}>
+              <Text style={styles.clearFiltersText}>Limpiar todo</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+
+      </View>
+
+      {/* Results */}
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Buscando propiedades...</Text>
         </View>
       ) : (
         <FlatList
@@ -131,20 +184,36 @@ export default function SearchScreen() {
             <View style={styles.emptyContainer}>
               <FontAwesome name="search" size={50} color={COLORS.lightGray} />
               <Text style={styles.emptyText}>No se encontraron propiedades</Text>
+              <Text style={styles.emptySubtext}>
+                Intenta ajustar tus filtros de búsqueda
+              </Text>
               <TouchableOpacity
                 style={styles.resetButton}
-                onPress={() => {
-                  setSearchQuery('');
-                  setSelectedType('');
-                  fetchProperties();
-                }}
+                onPress={handleClearAllFilters}
               >
                 <Text style={styles.resetButtonText}>Mostrar todas</Text>
               </TouchableOpacity>
             </View>
           }
+          ListHeaderComponent={
+            properties.length > 0 ? (
+              <View style={styles.resultsHeader}>
+                <Text style={styles.resultsCount}>
+                  {properties.length} propiedad{properties.length > 1 ? 'es' : ''} encontrada{properties.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+            ) : null
+          }
         />
       )}
+
+      {/* Advanced Filters Modal */}
+      <AdvancedFilters
+        visible={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        onApplyFilters={handleAdvancedFilters}
+        initialFilters={currentFilters}
+      />
     </View>
   );
 }
@@ -163,7 +232,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.lightGray,
+    backgroundColor: COLORS.white,
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
@@ -175,6 +244,27 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
     fontSize: 16,
+  },
+  filterButton: {
+    marginLeft: 10,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'transparent', // Sin fondo
+    borderWidth: 0, // Sin borde
+    elevation: 0,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    padding: 2,
+    paddingHorizontal: 5,
+  },
+  filterBadgeText: {
+    fontSize: 12,
+    color: COLORS.white,
   },
   typesContainer: {
     flexDirection: 'row',
@@ -201,10 +291,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  activeFiltersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  activeFiltersInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeFiltersText: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    marginRight: 5,
+  },
+  sortInfo: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    color: COLORS.primary,
+  },
+  searchButton: {
+    backgroundColor: COLORS.primary,
+    padding: 10,
+    borderRadius: 5,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  searchButtonText: {
+    fontSize: 16,
+    color: COLORS.white,
+    marginLeft: 5,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.darkGray,
+    marginTop: 10,
   },
   propertiesList: {
     padding: 15,
@@ -262,6 +396,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 5,
   },
+  propertyMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   propertyType: {
     fontSize: 12,
     backgroundColor: COLORS.lightGray,
@@ -269,6 +407,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     color: COLORS.darkGray,
+  },
+  propertyCapacity: {
+    fontSize: 12,
+    color: COLORS.darkGray,
+    marginLeft: 5,
   },
   propertyPrice: {
     fontSize: 16,
@@ -291,6 +434,12 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     textAlign: 'center',
   },
+  emptySubtext: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    textAlign: 'center',
+    marginTop: 5,
+  },
   resetButton: {
     marginTop: 15,
     backgroundColor: COLORS.primary,
@@ -301,5 +450,14 @@ const styles = StyleSheet.create({
   resetButtonText: {
     color: COLORS.white,
     fontWeight: '500',
+  },
+  resultsHeader: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  resultsCount: {
+    fontSize: 16,
+    color: COLORS.darkGray,
   },
 });

@@ -241,15 +241,25 @@ const usePropertyStore = create((set, get) => ({
         .select('*, users:id_propietario(nombre_completo, numero_telefono, url_foto_perfil)')
         .eq('estado', 'disponible');
       
-      // Apply filters
+      // Location filters - search in both estado and ciudad
       if (searchParams.location) {
-        query = query.ilike('direccion', `%${searchParams.location}%`);
+        query = query.or(`direccion.ilike.%${searchParams.location}%,ciudad.ilike.%${searchParams.location}%,estado.ilike.%${searchParams.location}%`);
       }
       
+      if (searchParams.estado) {
+        query = query.ilike('estado', `%${searchParams.estado}%`);
+      }
+      
+      if (searchParams.ciudad) {
+        query = query.ilike('ciudad', `%${searchParams.ciudad}%`);
+      }
+      
+      // Property type filter
       if (searchParams.type) {
         query = query.eq('tipo_propiedad', searchParams.type);
       }
       
+      // Price range filters
       if (searchParams.minPrice) {
         query = query.gte('precio_noche', searchParams.minPrice);
       }
@@ -258,11 +268,39 @@ const usePropertyStore = create((set, get) => ({
         query = query.lte('precio_noche', searchParams.maxPrice);
       }
       
+      // Capacity filter
       if (searchParams.capacity) {
         query = query.gte('capacidad', searchParams.capacity);
       }
       
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Amenities filter
+      if (searchParams.amenities && searchParams.amenities.length > 0) {
+        // Filter properties that contain all selected amenities
+        const amenitiesConditions = searchParams.amenities.map(amenity => 
+          `servicios.cs.{${amenity}}`
+        ).join(',');
+        query = query.or(amenitiesConditions);
+      }
+      
+      // Apply sorting
+      let orderColumn = 'created_at';
+      let ascending = false;
+      
+      if (searchParams.sortBy === 'price_asc') {
+        orderColumn = 'precio_noche';
+        ascending = true;
+      } else if (searchParams.sortBy === 'price_desc') {
+        orderColumn = 'precio_noche';
+        ascending = false;
+      } else if (searchParams.sortBy === 'newest') {
+        orderColumn = 'created_at';
+        ascending = false;
+      } else if (searchParams.sortBy === 'oldest') {
+        orderColumn = 'created_at';
+        ascending = true;
+      }
+      
+      const { data, error } = await query.order(orderColumn, { ascending });
       
       if (error) throw error;
       

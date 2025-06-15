@@ -171,7 +171,9 @@ export default function PropertyDetailScreen() {
         
         <View style={styles.locationContainer}>
           <FontAwesome name="map-marker" size={16} color={COLORS.darkGray} />
-          <Text style={styles.locationText}>{selectedProperty.direccion}</Text>
+          <Text style={styles.locationText}>
+            {selectedProperty.ciudad ? `${selectedProperty.ciudad} - ` : ""}{selectedProperty.direccion}
+          </Text>
         </View>
         
         <View style={styles.priceContainer}>

@@ -36,6 +36,69 @@ export const AMENITIES = [
   'gimnasio',
 ];
 
+// Estados de México más comunes
+export const ESTADOS_MEXICO = [
+  'Aguascalientes',
+  'Baja California',
+  'Baja California Sur',
+  'Campeche',
+  'Chiapas',
+  'Chihuahua',
+  'Ciudad de México',
+  'Coahuila',
+  'Colima',
+  'Durango',
+  'Estado de México',
+  'Guanajuato',
+  'Guerrero',
+  'Hidalgo',
+  'Jalisco',
+  'Michoacán',
+  'Morelos',
+  'Nayarit',
+  'Nuevo León',
+  'Oaxaca',
+  'Puebla',
+  'Querétaro',
+  'Quintana Roo',
+  'San Luis Potosí',
+  'Sinaloa',
+  'Sonora',
+  'Tabasco',
+  'Tamaulipas',
+  'Tlaxcala',
+  'Veracruz',
+  'Yucatán',
+  'Zacatecas',
+];
+
+// Opciones de ordenamiento
+export const SORT_OPTIONS = [
+  { value: 'newest', label: 'Más recientes' },
+  { value: 'oldest', label: 'Más antiguos' },
+  { value: 'price_asc', label: 'Precio: menor a mayor' },
+  { value: 'price_desc', label: 'Precio: mayor a menor' },
+];
+
+// Rangos de precio predefinidos (en USD)
+export const PRICE_RANGES = [
+  { min: 0, max: 50, label: 'Hasta $50' },
+  { min: 50, max: 100, label: '$50 - $100' },
+  { min: 100, max: 150, label: '$100 - $150' },
+  { min: 150, max: 200, label: '$150 - $200' },
+  { min: 200, max: 250, label: '$200 - $250' },
+  { min: 250, max: null, label: 'Más de $250' },
+];
+
+// Opciones de capacidad
+export const CAPACITY_OPTIONS = [
+  { value: 1, label: '1 persona' },
+  { value: 2, label: '2 personas' },
+  { value: 3, label: '3 personas' },
+  { value: 4, label: '4 personas' },
+  { value: 5, label: '5+ personas' },
+];
+
 // Payment methods
 export const PAYMENT_METHODS = [
   'transferencia bancaria',
