@@ -6,6 +6,12 @@
     ],
     "name": "aloja-T",
     "slug": "alojate-app",
+    "icon": "./img/icono.png",
+    "splash": {
+      "image": "./img/splats.jpg",
+      "resizeMode": "cover",
+      "backgroundColor": "#ffffff"
+    },
     "extra": {
       "router": {},
       "eas": {
@@ -13,7 +19,14 @@
       }
     },
     "android": {
-      "package": "com.arthur995.alojateapp"
+      "package": "com.arthur995.alojateapp",
+      "adaptiveIcon": {
+        "foregroundImage": "./img/icono.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "ios": {
+      "supportsTablet": true
     }
   }
 }

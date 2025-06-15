@@ -372,7 +372,7 @@ export default function PaymentManageScreen() {
         
         <View style={styles.paymentInfo}>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fecha vencimiento:</Text>
+            <Text style={styles.infoLabel}>Fecha de pago:</Text>
             <Text style={[styles.infoValue, isOverdue && styles.overdueText]}>
               {new Date(dueDate).toLocaleDateString()}
             </Text>
@@ -416,15 +416,35 @@ export default function PaymentManageScreen() {
           )}
         </View>
         <View style={styles.cardActions}>
-          {/* Mostrar botón de registro/reenvío SOLO para estudiantes (no propietarios) */}
+          {/* Mostrar botón de registro/reenvío SOLO para estudiantes (no propietarios) 
+              y solo cuando faltan 2 días o menos para la fecha de vencimiento */}
           {!isOwner && (normalizedStatus === 'pendiente_registro' || displayStatus === 'pendiente_registro') ? (
-            <TouchableOpacity 
-              style={styles.recordButton}
-              onPress={() => navigateToPaymentRecord(month)}
-            >
-              <FontAwesome name="plus" size={16} color={COLORS.white} />
-              <Text style={styles.buttonText}>Registrar Pago</Text>
-            </TouchableOpacity>
+            (() => {
+              // Obtener la fecha actual
+              const currentDate = new Date();
+              // Convertir dueDate a objeto Date si no lo es ya
+              const paymentDueDate = new Date(dueDate);
+              // Calcular diferencia en días
+              const timeDiff = paymentDueDate.getTime() - currentDate.getTime();
+              const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+              
+              // Solo mostrar si faltan 2 días o menos (o ya está vencido)
+              return (daysDiff <= 2) ? (
+                <TouchableOpacity 
+                  style={styles.recordButton}
+                  onPress={() => navigateToPaymentRecord(month)}
+                >
+                  <FontAwesome name="plus" size={16} color={COLORS.white} />
+                  <Text style={styles.buttonText}>Registrar Pago</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.infoRow, {marginTop: 5}]}>
+                  <Text style={[styles.infoValue, {textAlign: 'center', flex: 1, fontStyle: 'italic', color: COLORS.darkGray}]}>
+                    Registro de pago disponible 2 días antes de la fecha de pago
+                  </Text>
+                </View>
+              );
+            })()
           ) : !isOwner && isRejected ? (
             <TouchableOpacity 
               style={[styles.recordButton, {backgroundColor: COLORS.accent}]}

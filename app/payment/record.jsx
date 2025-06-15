@@ -424,8 +424,26 @@ export default function PaymentRecordScreen() {
         >
           <FontAwesome name="arrow-left" size={18} color={COLORS.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isPagoRechazado ? 'Actualizar Pago Rechazado' : 'Registrar Pago'}</Text>
+        <Text style={styles.headerTitle}>
+          {isPagoRechazado ? "Actualizar Pago Rechazado" : "Registrar Pago"}
+        </Text>
       </View>
+
+      <View style={styles.reservationCard}>
+        <Text style={styles.reservationTitle}>Detalles de la reserva</Text>
+        <View style={styles.reservationDetails}>
+          <Text style={styles.propertyName}>
+            {selectedReservation.properties?.titulo || "Propiedad"}
+          </Text>
+          <Text style={styles.reservationDates}>
+            {new Date(selectedReservation.fecha_llegada).toLocaleDateString()} -{" "}
+            {new Date(selectedReservation.fecha_salida).toLocaleDateString()}
+          </Text>
+          <Text style={styles.reservationAmount}>
+            Monto total: ${selectedReservation.costo_total.toLocaleString()}
+          </Text>
+        </View>
+      </View> 
       
       <View style={styles.reservationCard}>
         <Text style={styles.propertyTitle}>
@@ -434,34 +452,20 @@ export default function PaymentRecordScreen() {
         <Text style={styles.reservationInfo}>
           Mes {currentMonth} de {selectedReservation?.duration_months || 1}
         </Text>
-        
         {isPagoRechazado && (
           <View style={styles.rejectionInfo}>
             <Text style={styles.rejectionTitle}>Motivo del rechazo:</Text>
             <Text style={styles.rejectionText}>{motivoRechazo}</Text>
-            <Text style={styles.rejectionHint}>Por favor actualiza tu comprobante de pago y envíalo nuevamente.</Text>
+            <Text style={styles.rejectionHint}>
+              Por favor actualiza tu comprobante de pago y envíalo nuevamente.
+            </Text>
           </View>
         )}
       </View>
       
-      <View style={styles.reservationCard}>
-        <Text style={styles.reservationTitle}>Detalles de la reserva</Text>
-        <View style={styles.reservationDetails}>
-          <Text style={styles.propertyName}>
-            {selectedReservation.properties?.titulo || 'Propiedad'}
-          </Text>
-          <Text style={styles.reservationDates}>
-            {new Date(selectedReservation.fecha_llegada).toLocaleDateString()} - {new Date(selectedReservation.fecha_salida).toLocaleDateString()}
-          </Text>
-          <Text style={styles.reservationAmount}>
-            Monto total: ${selectedReservation.costo_total.toLocaleString()}
-          </Text>
-        </View>
-      </View>
-      
       <View style={styles.formContainer}>
         <Text style={styles.formTitle}>Información del pago</Text>
-        
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Método de pago *</Text>
           <View style={styles.paymentMethodsContainer}>
@@ -470,38 +474,44 @@ export default function PaymentRecordScreen() {
                 key={method}
                 style={[
                   styles.methodButton,
-                  metodoPago === method && styles.selectedMethod
+                  metodoPago === method && styles.selectedMethod,
                 ]}
                 onPress={() => setMetodoPago(method)}
               >
-                <Text style={[
-                  styles.methodText,
-                  metodoPago === method && styles.selectedMethodText
-                ]}>
+                <Text
+                  style={[
+                    styles.methodText,
+                    metodoPago === method && styles.selectedMethodText,
+                  ]}
+                >
                   {method.charAt(0).toUpperCase() + method.slice(1)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-        
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Monto pagado (fijo)</Text>
-          <View style={[styles.amountInput, { backgroundColor: COLORS.background }]}>
+          <View
+            style={[styles.amountInput, { backgroundColor: COLORS.background }]}
+          >
             <Text style={styles.amountPrefix}>$</Text>
-            <Text style={styles.amountValue}>{monthlyAmount.toLocaleString()}</Text>
+            <Text style={styles.amountValue}>
+              {monthlyAmount.toLocaleString()}
+            </Text>
           </View>
           <Text style={styles.helperText}>
             El monto mensual es fijo y se calcula automáticamente
           </Text>
         </View>
-        
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Comprobante de pago *</Text>
           {comprobantePago ? (
             <View style={styles.proofContainer}>
-              <Image 
-                source={{ uri: comprobantePago }} 
+              <Image
+                source={{ uri: comprobantePago }}
                 style={styles.proofPreview}
                 resizeMode="cover"
               />
@@ -525,10 +535,12 @@ export default function PaymentRecordScreen() {
             Sube una foto clara del comprobante de transferencia o depósito.
           </Text>
         </View>
-        
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Mes de pago (fijo)</Text>
-          <View style={[styles.monthInput, { backgroundColor: COLORS.background }]}>
+          <View
+            style={[styles.monthInput, { backgroundColor: COLORS.background }]}
+          >
             <Text style={styles.monthValue}>Mes {currentMonth}</Text>
           </View>
           <Text style={styles.helperText}>
@@ -536,7 +548,7 @@ export default function PaymentRecordScreen() {
           </Text>
         </View>
       </View>
-      
+
       <TouchableOpacity
         style={styles.submitButton}
         onPress={handleSubmitPayment}
@@ -548,11 +560,12 @@ export default function PaymentRecordScreen() {
           <Text style={styles.submitButtonText}>Registrar Pago</Text>
         )}
       </TouchableOpacity>
-      
+
       <View style={styles.disclaimer}>
         <FontAwesome name="info-circle" size={16} color={COLORS.darkGray} />
         <Text style={styles.disclaimerText}>
-          El propietario verificará tu pago y confirmará la reserva una vez validado el comprobante.
+          El propietario verificará tu pago y confirmará la reserva una vez
+          validado el comprobante.
         </Text>
       </View>
     </ScrollView>
