@@ -5,6 +5,7 @@ export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // App color scheme
 export const COLORS = {
   primary: '#3498db',
+  primaryLight: '#a8d4f5', // Color primario con transparencia para efectos de la TabBar
   secondary: '#2ecc71',
   accent: '#f1c40f',
   error: '#e74c3c',

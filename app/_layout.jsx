@@ -8,7 +8,7 @@ import usePropertyStore from "../store/propertyStore";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 export default function RootLayout() {
-  console.log("RootLayout inicializándose");
+
   // Added mounting ref to track component mounting state
   const isMounted = useRef(false);
   const { initialize, user } = useAuthStore();
@@ -18,57 +18,50 @@ export default function RootLayout() {
 
   // Initialize auth state when app starts and set mounted ref
   useEffect(() => {
-    console.log("RootLayout - Efecto de inicialización ejecutándose");
+
     try {
       initialize();
-      console.log("Inicialización de autenticación completada");
+
       // Mark component as mounted after initialization
       isMounted.current = true;
     } catch (error) {
-      console.error("Error durante la inicialización:", error);
+      // Error controlado
     }
   }, []);
 
   // Set up real-time notifications when user logs in
   useEffect(() => {
-    console.log(
-      "RootLayout - Efecto de usuario cambió",
-      user ? "Usuario presente" : "Sin usuario"
-    );
+
     if (user) {
       try {
-        console.log(
-          "Inicializando notificaciones en tiempo real para usuario ID:",
-          user.id
-        );
+
         // Initialize real-time notifications for the logged-in user
         initializeRealTimeNotifications(user.id);
 
         // If user is a property owner, fetch their properties
         if (user.tipo_usuario === "propietario") {
-          console.log("Usuario es propietario, obteniendo propiedades");
+
           fetchUserProperties(user.id);
         }
       } catch (error) {
-        console.error("Error al configurar notificaciones:", error);
+
       }
     } else {
-      console.log("No hay usuario, limpiando suscripciones");
       // Clean up subscriptions when user logs out
       try {
         cleanupSubscriptions();
       } catch (error) {
-        console.error("Error al limpiar suscripciones:", error);
+
       }
     }
 
     // Clean up on unmount
     return () => {
-      console.log("RootLayout - Limpiando subscripciones (cleanup)");
+      // Limpieza de suscripciones
       try {
         cleanupSubscriptions();
       } catch (error) {
-        console.error("Error durante la limpieza:", error);
+
       }
     };
   }, [user]);
@@ -83,20 +76,20 @@ export default function RootLayout() {
       try {
         // Get current route path
         const currentPath = router.asPath || router.pathname || '';
-        console.log("Verificando navegación para ruta:", currentPath);
+
         
         // If user is null and not already on login or signup, redirect to login
         if (!user && !currentPath.startsWith('/login') && !currentPath.startsWith('/signup')) {
-          console.log("Redirigiendo a login");
+
           router.replace('/login');
         }
         // If user exists and is on login or signup, redirect to (tabs)
         else if (user && (currentPath.startsWith('/login') || currentPath.startsWith('/signup'))) {
-          console.log("Redirigiendo a tabs");
+
           router.replace('/(tabs)');
         }
       } catch (error) {
-        console.error("Error en navegación:", error);
+
       }
     }, 0);
     
@@ -105,18 +98,19 @@ export default function RootLayout() {
 
   // Render the application
   try {
-    console.log("RootLayout - Renderizando la aplicación");
+
     return (
       <SafeAreaProvider>
         <StatusBar style="auto" />
         {/* SafeAreaView asegura padding en los bordes seguros */}
         <SafeAreaView style={{ flex: 1 }} edges={["top", "right", "left", "bottom"]}>
+          {/* Use Slot directly in root layout */}
           <Slot />
         </SafeAreaView>
       </SafeAreaProvider>
     );
   } catch (error) {
-    console.error("Error al renderizar RootLayout:", error);
+    // Error controlado
     // Renderizado de emergencia si algo sale mal
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

@@ -532,11 +532,7 @@ export default function PaymentManageScreen() {
       
       {monthlyPayments.map(renderPaymentCard)}
       
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {isOwner ? 'Vista de propietario' : 'Vista de estudiante'}
-        </Text>
-      </View>
+
     </ScrollView>
   );
 }

@@ -11,6 +11,7 @@ import { router } from "expo-router";
 import useAuthStore from "../../store/authStore";
 import useNotificationStore from "../../store/notificationStore";
 import NotificationBadge from "../../components/NotificationBadge";
+import AnimatedTabBar from "../../components/AnimatedTabBar";
 import { COLORS } from "../../utils/constants";
 
 export default function TabsLayout() {
@@ -22,9 +23,29 @@ export default function TabsLayout() {
     return null;
   }
 
-  // Verificamos estrictamente el rol del usuario
-  const isOwner = user?.rol === "propietario";
-  const isAdmin = user?.rol === "administrador";
+  // Verificamos estrictamente que el usuario sea propietario
+  // Comprobación estricta considerando todas las posibles variables
+  let isOwner = false;
+  
+  // Solo debe ser true si ALGUNA de estas condiciones se cumple
+  if (
+    (user?.rol?.toLowerCase() === "propietario") ||
+    (user?.tipo_usuario?.toLowerCase() === "propietario") ||
+    (user?.user_metadata?.rol?.toLowerCase() === "propietario")
+  ) {
+    isOwner = true;
+  }
+  
+  // Verificación extra: estudiante explícito bloquea acceso aunque otras condiciones sean true
+  if (
+    (user?.rol?.toLowerCase() === "estudiante") ||
+    (user?.tipo_usuario?.toLowerCase() === "estudiante")
+  ) {
+    isOwner = false; // Si es explícitamente estudiante, no es propietario
+  }
+  
+  const isAdmin = user?.rol?.toLowerCase() === "administrador";
+  
 
   // La mejor forma de ocultar las pestañas en Expo Router es usando el condicional
   // como hemos implementado más abajo con {isOwner && <Tabs.Screen ... />}
@@ -32,12 +53,17 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      tabBar={(props) => <AnimatedTabBar {...props} />}
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.darkGray,
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.lightGray,
+          elevation: 0, // Elimina sombra en Android
+          shadowOpacity: 0, // Elimina sombra en iOS
+          borderTopWidth: 0, // Eliminamos el borde superior para que se vea mejor el indicador
         },
         headerStyle: {
           backgroundColor: COLORS.primary,
@@ -88,18 +114,18 @@ export default function TabsLayout() {
       />
 
       {/* Owner Properties Tab - Solo visible para propietarios */}
-      {isOwner && (
-        <Tabs.Screen
-          name="owner"
-          options={{
-            title: "Mis Propiedades",
-            tabBarLabel: "Propietario",
-            tabBarIcon: ({ color, size }) => (
-              <FontAwesome5 name="person" size={size} color={color} />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="owner"
+        options={{
+          title: "Mis Propiedades",
+          tabBarLabel: "Propietario",
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome5 name="home" size={size} color={color} />
+          ),
+          // Ocultamos la pestaña desde las opciones en lugar de usar un condicional
+          href: isOwner ? undefined : null,
+        }}
+      />
 
       {/* Profile Tab */}
       <Tabs.Screen
