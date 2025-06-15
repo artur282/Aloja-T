@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,25 @@ import {
   ScrollView,
   TextInput,
   Switch,
+  FlatList,
+  SafeAreaView,
 } from 'react-native';
-import { FontAwesome } from '@expo/vector-icons';
+import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import Slider from '@react-native-community/slider';
 import { 
   COLORS, 
   PROPERTY_TYPES, 
   AMENITIES, 
-  ESTADOS_MEXICO, 
   SORT_OPTIONS, 
   PRICE_RANGES, 
   CAPACITY_OPTIONS 
 } from '../utils/constants';
+import estadosCiudades from '../data/ciudades.json';
 
 const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {} }) => {
   const [filters, setFilters] = useState({
     location: initialFilters.location || '',
-    estado: initialFilters.estado || '',
     ciudad: initialFilters.ciudad || '',
     type: initialFilters.type || '',
     sortBy: initialFilters.sortBy || 'newest',
@@ -36,6 +37,19 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
     amenities: initialFilters.amenities || [],
     useCustomPriceRange: initialFilters.useCustomPriceRange || false,
   });
+  
+  // Estados para el modal de selección de ciudad
+  const [showCitiesModal, setShowCitiesModal] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  
+  // Obtener todas las ciudades de todos los estados
+  const todasLasCiudades = useMemo(() => {
+    const ciudades = [];
+    Object.values(estadosCiudades).forEach(ciudadesArray => {
+      ciudades.push(...ciudadesArray);
+    });
+    return [...new Set(ciudades)].sort();
+  }, []);
 
   const handleAmenityToggle = (amenity) => {
     setFilters(prev => ({
@@ -67,7 +81,6 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
   const handleApply = () => {
     const searchParams = {
       location: filters.location,
-      estado: filters.estado,
       ciudad: filters.ciudad,
       type: filters.type,
       sortBy: filters.sortBy,
@@ -84,7 +97,6 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
   const handleReset = () => {
     setFilters({
       location: '',
-      estado: '',
       ciudad: '',
       type: '',
       sortBy: 'newest',
@@ -118,31 +130,22 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           {/* Ubicación General */}
 
 
-          {/* Estado y Ciudad */}
+          {/* Ciudad */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Ubicación</Text>
+            <Text style={styles.sectionTitle}>Ciudad</Text>
             
-            <Text style={styles.fieldLabel}>Estado</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={filters.estado}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, estado: value }))}
-                style={styles.picker}
-              >
-                <Picker.Item label="Todos los estados" value="" />
-                {ESTADOS_MEXICO.map(estado => (
-                  <Picker.Item key={estado} label={estado} value={estado} />
-                ))}
-              </Picker>
-            </View>
-
-            <Text style={styles.fieldLabel}>Ciudad</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Nombre de la ciudad..."
-              value={filters.ciudad}
-              onChangeText={(text) => setFilters(prev => ({ ...prev, ciudad: text }))}
-            />
+            <TouchableOpacity 
+              style={styles.selector}
+              onPress={() => {
+                setSearchText('');
+                setShowCitiesModal(true);
+              }}
+            >
+              <Text style={filters.ciudad ? styles.selectorText : styles.selectorPlaceholder}>
+                {filters.ciudad || 'Seleccionar ciudad'}
+              </Text>
+              <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+            </TouchableOpacity>
           </View>
 
           {/* Tipo de Propiedad */}
@@ -311,11 +314,141 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Modal de Selección de Ciudad */}
+      <Modal
+        visible={showCitiesModal}
+        animationType="slide"
+        transparent={true}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccione una ciudad</Text>
+              <TouchableOpacity onPress={() => setShowCitiesModal(false)}>
+                <MaterialIcons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.searchContainer}>
+              <TextInput 
+                style={styles.searchInput}
+                placeholder="Buscar ciudad..."
+                value={searchText}
+                onChangeText={setSearchText}
+              />
+              {searchText ? (
+                <TouchableOpacity onPress={() => setSearchText('')}>
+                  <MaterialIcons name="close" size={20} color={COLORS.darkGray} />
+                </TouchableOpacity>
+              ) : (
+                <MaterialIcons name="search" size={20} color={COLORS.darkGray} />
+              )}
+            </View>
+            
+            <FlatList
+              data={todasLasCiudades.filter(city => 
+                city.toLowerCase().includes(searchText.toLowerCase())
+              )}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setFilters(prev => ({ ...prev, ciudad: item }));
+                    setShowCitiesModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                  {filters.ciudad === item && (
+                    <MaterialIcons name="check" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyList}>
+                  No se encontraron ciudades con "{searchText}"
+                </Text>
+              }
+            />
+          </View>
+        </SafeAreaView>
+      </Modal>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  selector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 8,
+    padding: 12,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  selectorPlaceholder: {
+    fontSize: 16,
+    color: COLORS.darkGray,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    margin: 15,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 45,
+    fontSize: 16,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  emptyList: {
+    padding: 20,
+    textAlign: 'center',
+    color: COLORS.darkGray,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

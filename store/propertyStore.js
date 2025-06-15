@@ -241,13 +241,9 @@ const usePropertyStore = create((set, get) => ({
         .select('*, users:id_propietario(nombre_completo, numero_telefono, url_foto_perfil)')
         .eq('estado', 'disponible');
       
-      // Location filters - search in both estado and ciudad
+      // Location filters - search in direccion and ciudad
       if (searchParams.location) {
-        query = query.or(`direccion.ilike.%${searchParams.location}%,ciudad.ilike.%${searchParams.location}%,estado.ilike.%${searchParams.location}%`);
-      }
-      
-      if (searchParams.estado) {
-        query = query.ilike('estado', `%${searchParams.estado}%`);
+        query = query.or(`direccion.ilike.%${searchParams.location}%,ciudad.ilike.%${searchParams.location}%`);
       }
       
       if (searchParams.ciudad) {
