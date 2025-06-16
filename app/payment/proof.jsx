@@ -15,7 +15,6 @@ import { FontAwesome } from '@expo/vector-icons';
 import { COLORS } from '../../utils/constants';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
-import * as Permissions from 'expo-permissions';
 
 const { width, height } = Dimensions.get('window');
 
