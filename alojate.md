@@ -1,7 +1,3 @@
-Aquí tienes una explicación concisa pero detallada del flujo y las características clave de Aloja-T, optimizada para la implementación por un desarrollador.
-
----
-
 # Aloja-T: Flujo de la Aplicación y Características Clave (Guía Rápida para Desarrolladores)
 
 Aloja-T es una plataforma móvil/web que conecta estudiantes con alojamientos universitarios para arrendamiento mensual. Construida con `React Native` (Expo, Expo router) y `Zustand` para el frontend, y `Supabase` (PostgreSQL, Auth, Storage) como backend, sigue una arquitectura `MVVM`. Se utilizan UUIDs para identificadores y se prioriza la seguridad mediante `Row Level Security (RLS)` en Supabase.

@@ -7,11 +7,15 @@ import {
   TouchableOpacity, 
   ActivityIndicator,
   Dimensions,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import { COLORS } from '../../utils/constants';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as Permissions from 'expo-permissions';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,23 +33,61 @@ export default function PaymentProofScreen() {
     setImageError(true);
   };
 
-  const handleDownload = () => {
-    // En una implementación real, aquí podrías implementar la descarga
-    Alert.alert(
-      'Descargar Comprobante',
-      'Funcionalidad de descarga no implementada en esta versión demo',
-      [{ text: 'OK' }]
-    );
+  const handleDownload = async () => {
+    try {
+      // Solicitar permisos para guardar archivos (solo necesario en Android)
+      if (Platform.OS === 'android') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permiso denegado',
+            'Se necesitan permisos para guardar el comprobante en tu dispositivo.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+      
+      // Mostrar indicador de descarga
+      Alert.alert(
+        'Descargando',
+        'Descargando comprobante...',
+      );
+      
+      // Descargar la imagen
+      const decodedUrl = decodeURIComponent(url);
+      const fileName = `comprobante_pago_${Date.now()}.jpg`;
+      const fileUri = FileSystem.documentDirectory + fileName;
+      
+      const downloadResult = await FileSystem.downloadAsync(decodedUrl, fileUri);
+      
+      if (downloadResult.status !== 200) {
+        throw new Error('Error al descargar el archivo');
+      }
+      
+      // Guardar en la galería si estamos en un dispositivo móvil
+      if (Platform.OS !== 'web') {
+        const asset = await MediaLibrary.createAssetAsync(fileUri);
+        await MediaLibrary.createAlbumAsync('Aloja-T', asset, false);
+      }
+      
+      Alert.alert(
+        'Descarga completa',
+        'El comprobante se ha guardado correctamente en tu galería.',
+        [{ text: 'OK' }]
+      );
+      
+    } catch (error) {
+      console.error('Error al descargar:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo descargar el comprobante. Por favor, intenta de nuevo.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
-  const handleShare = () => {
-    // En una implementación real, aquí podrías implementar compartir
-    Alert.alert(
-      'Compartir Comprobante',
-      'Funcionalidad de compartir no implementada en esta versión demo',
-      [{ text: 'OK' }]
-    );
-  };
+  // Ya no necesitamos esta función porque eliminamos el botón de compartir
 
   if (!url) {
     return (
@@ -75,13 +117,6 @@ export default function PaymentProofScreen() {
         <Text style={styles.headerTitle}>Comprobante de Pago</Text>
         
         <View style={styles.headerActions}>
-          <TouchableOpacity 
-            style={styles.headerButton}
-            onPress={handleShare}
-          >
-            <FontAwesome name="share" size={20} color={COLORS.white} />
-          </TouchableOpacity>
-          
           <TouchableOpacity 
             style={styles.headerButton}
             onPress={handleDownload}
@@ -164,7 +199,6 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 10,
   },
   imageContainer: {
     flex: 1,

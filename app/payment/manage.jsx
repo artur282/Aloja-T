@@ -75,9 +75,32 @@ export default function PaymentManageScreen() {
 
   const loadMonthlyPayments = async () => {
     try {
-      // Primero obtener datos de la reserva
-      if (!selectedReservation) {
-        await fetchReservationById(reservationId);
+      // Primero obtener datos de la reserva y guardar una referencia local
+      // para asegurarnos de tener la información más actualizada
+      let reservationData = selectedReservation;
+      
+      if (!reservationData) {
+        // Si no hay una reserva seleccionada, la obtenemos y guardamos el resultado
+        const result = await fetchReservationById(reservationId);
+        // Verificar si fetchReservationById devuelve los datos directamente
+        if (result && result.data) {
+          reservationData = result.data;
+        } else {
+          // Intentar obtener la reserva directamente de Supabase si no la tenemos todavía
+          const { data: fetchedReservation, error } = await supabase
+            .from('reservations')
+            .select('*, properties(*)')
+            .eq('id', reservationId)
+            .single();
+            
+          if (error) throw error;
+          reservationData = fetchedReservation;
+        }
+      }
+      
+      // Verificar que tenemos datos válidos de reserva antes de continuar
+      if (!reservationData || !reservationData.fecha_llegada) {
+        throw new Error('No se pudo obtener la información de la reserva');
       }
       
       // Hacer una consulta directa a la base de datos para asegurarse de tener datos frescos
@@ -95,10 +118,9 @@ export default function PaymentManageScreen() {
       
       console.log('Pagos cargados directamente de la BD:', freshPayments);
       
-      // Crear estructura completa de pagos mensuales
-      const reservation = selectedReservation;
-      const totalMonths = reservation?.duration_months || 1;
-      const monthlyAmount = reservation?.properties?.precio_noche || 0;
+      // Crear estructura completa de pagos mensuales usando los datos que acabamos de obtener
+      const totalMonths = reservationData.duration_months || 1;
+      const monthlyAmount = reservationData.properties?.precio_noche || 0;
       
       const payments = [];
       const paymentMap = new Map();
@@ -113,7 +135,7 @@ export default function PaymentManageScreen() {
       // Crear estructura para todos los meses
       for (let month = 1; month <= totalMonths; month++) {
         const existingPayment = paymentMap.get(month);
-        const dueDate = new Date(reservation.fecha_llegada);
+        const dueDate = new Date(reservationData.fecha_llegada);
         dueDate.setMonth(dueDate.getMonth() + (month - 1));
 
         // Garantizar que se use el estado correcto del objeto de pago
@@ -135,39 +157,10 @@ export default function PaymentManageScreen() {
       
     } catch (error) {
       console.error('Error loading monthly payments:', error);
-      
-      // Si hay un error al cargar los pagos, intenta crear una estructura básica
-      const reservation = selectedReservation;
-      
-      // Verificar que la reserva existe y tiene una fecha de llegada válida
-      if (reservation && reservation.fecha_llegada) {
-        const totalMonths = reservation.duration_months || 1;
-        const monthlyAmount = reservation.properties?.precio_noche || 0;
-        const payments = [];
-        
-        try {
-          for (let month = 1; month <= totalMonths; month++) {
-            const dueDate = new Date(reservation.fecha_llegada);
-            dueDate.setMonth(dueDate.getMonth() + (month - 1));
-
-            payments.push({
-              month,
-              dueDate: dueDate.toISOString().split('T')[0],
-              amount: monthlyAmount,
-              status: 'pendiente_registro',
-              payment: null,
-              isOverdue: new Date() > dueDate
-            });
-          }
-          setMonthlyPayments(payments);
-        } catch (innerError) {
-          console.error('Error al crear estructura básica de pagos:', innerError);
-          setMonthlyPayments([]);
-        }
-      } else {
-        console.warn('La reserva es nula o no tiene fecha de llegada, no se pueden generar pagos mensuales');
-        setMonthlyPayments([]);
-      }
+      setMonthlyPayments([]);
+      // Ya no intentamos crear una estructura básica aquí, ya que el problema principal
+      // era que no teníamos los datos de la reserva. Si hay un error, simplemente
+      // mostramos un array vacío y el usuario puede intentar recargar.
     }
   };
 

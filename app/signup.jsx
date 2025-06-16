@@ -65,7 +65,7 @@ export default function SignUpScreen() {
     >
       <View style={styles.formContainer}>
         <Text style={styles.title}>Registro</Text>
-        <Text style={styles.subtitle}>Crea tu cuenta en Alojate</Text>
+        <Text style={styles.subtitle}>Crea tu cuenta en Aloja-T</Text>
 
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Nombre completo *</Text>

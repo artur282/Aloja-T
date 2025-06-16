@@ -46,23 +46,12 @@ export default function NotificationsScreen() {
   }, [lastNotification, user]);
 
   const handleNotificationPress = async (notification) => {
-    // Mark as read when clicked
+    // Sólo marcar como leída cuando se hace clic, sin redireccionar
     if (!notification.estado_lectura) {
       await markAsRead(notification.id);
     }
     
-    // Handle navigation based on notification type
-    if (notification.payload_id) {
-      if (notification.tipo_notificacion === 'nueva_reserva' || 
-          notification.tipo_notificacion === 'reserva_aceptada' ||
-          notification.tipo_notificacion === 'reserva_rechazada' ||
-          notification.tipo_notificacion === 'reserva_cancelada') {
-        router.push(`/reservation/${notification.payload_id}`);
-      } else if (notification.tipo_notificacion === 'pago_verificado' ||
-                notification.tipo_notificacion === 'pago_rechazado') {
-        router.push(`/payment/${notification.payload_id}`);
-      }
-    }
+    // Se eliminó la redirección a otras pantallas según lo solicitado
   };
 
   const handleMarkAllAsRead = () => {

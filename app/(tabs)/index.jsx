@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { FontAwesome } from '@expo/vector-icons';
 import usePropertyStore from '../../store/propertyStore';
 import { COLORS, PROPERTY_TYPES, SORT_OPTIONS } from '../../utils/constants';
 import AdvancedFilters from '../../components/AdvancedFilters';
+import ciudadesData from '../../data/ciudades.json';
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,7 +15,12 @@ export default function SearchScreen() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [currentFilters, setCurrentFilters] = useState({});
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
+  const [suggestedCities, setSuggestedCities] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const { properties, fetchProperties, isLoading, searchProperties } = usePropertyStore();
+  
+  // Lista plana de todas las ciudades
+  const todasLasCiudades = Object.values(ciudadesData).flat();
 
   // Fetch properties when component mounts
   useEffect(() => {
@@ -44,22 +50,61 @@ export default function SearchScreen() {
     setActiveFiltersCount(count);
   }, [currentFilters]);
 
-  const handleSearch = () => {
+  // Filtrar ciudades basado en el texto ingresado
+  const filterCities = (text) => {
+    if (!text) {
+      setSuggestedCities([]);
+      setShowSuggestions(false);
+      return;
+    }
+    
+    const filtered = todasLasCiudades.filter(city => 
+      city.toLowerCase().includes(text.toLowerCase())
+    ).slice(0, 5); // Limitar a 5 sugerencias
+    
+    setSuggestedCities(filtered);
+    setShowSuggestions(filtered.length > 0);
+  };
+  
+  // Manejar cambio en el texto de búsqueda
+  const handleSearchChange = (text) => {
+    setSearchQuery(text);
+    filterCities(text);
+  };
+  
+  // Seleccionar una ciudad sugerida
+  const selectCity = (city) => {
+    setSearchQuery(city);
+    setSuggestedCities([]);
+    setShowSuggestions(false);
+    
+    // Buscar automáticamente con la ciudad seleccionada
     const searchParams = {
-      location: searchQuery,
+      ciudad: city,
       type: selectedType,
       ...currentFilters
     };
     searchProperties(searchParams);
   };
+  
+  const handleSearch = () => {
+    const searchParams = {
+      ciudad: searchQuery, // Cambiar location por ciudad
+      type: selectedType,
+      ...currentFilters
+    };
+    searchProperties(searchParams);
+    setShowSuggestions(false);
+  };
 
   const handleAdvancedFilters = (filters) => {
     setCurrentFilters(filters);
-    setSearchQuery(filters.location || '');
+    setSearchQuery(filters.ciudad || ''); // Cambiar location por ciudad
     setSelectedType(filters.type || '');
     
     // Apply the filters immediately
     searchProperties(filters);
+    setShowSuggestions(false);
   };
 
   const handleClearAllFilters = () => {
@@ -132,13 +177,20 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
-        {/* Botón de Filtros Avanzados Único */}
-        <View style={[styles.inputContainer, { justifyContent: 'flex-end' }]}> 
+        {/* Barra de búsqueda con botón de filtros */}
+        <View style={styles.searchBarContainer}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar por ciudad..."
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={handleSearch}
+          />
           <TouchableOpacity 
             style={styles.filterButton}
             onPress={() => setShowAdvancedFilters(true)}
           >
-            <FontAwesome name="filter" size={18} color={COLORS.primary} />
+            <FontAwesome name="filter" size={16} color={COLORS.primary} />
             {activeFiltersCount > 0 && (
               <View style={styles.filterBadge}>
                 <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
@@ -146,6 +198,22 @@ export default function SearchScreen() {
             )}
           </TouchableOpacity>
         </View>
+        
+        {/* Sugerencias de ciudades */}
+        {showSuggestions && (
+          <View style={styles.suggestionsContainer}>
+            {suggestedCities.map((city, index) => (
+              <TouchableOpacity 
+                key={index} 
+                style={styles.suggestionItem}
+                onPress={() => selectCity(city)}
+              >
+                <FontAwesome name="map-marker" size={14} color={COLORS.darkGray} style={styles.suggestionIcon} />
+                <Text style={styles.suggestionText}>{city}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       
 
         {/* Active Filters Summary */}
@@ -229,42 +297,51 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
   },
-  inputContainer: {
+  searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderRadius: 8,
-    padding: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
   },
   inputIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    fontSize: 16,
+    height: 36,
+    fontSize: 15,
+    paddingVertical: 0,
   },
   filterButton: {
-    marginLeft: 10,
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: 'transparent', // Sin fondo
-    borderWidth: 0, // Sin borde
+    marginLeft: 8,
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
     elevation: 0,
   },
   filterBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
+    top: -4,
+    right: -4,
     backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    padding: 2,
-    paddingHorizontal: 5,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   filterBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     color: COLORS.white,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   typesContainer: {
     flexDirection: 'row',
@@ -459,5 +536,37 @@ const styles = StyleSheet.create({
   resultsCount: {
     fontSize: 16,
     color: COLORS.darkGray,
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: 70,
+    left: 15,
+    right: 15,
+    backgroundColor: COLORS.white,
+    borderRadius: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    zIndex: 100,
+    maxHeight: 200,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  suggestionIcon: {
+    marginRight: 10,
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: COLORS.text,
   },
 });

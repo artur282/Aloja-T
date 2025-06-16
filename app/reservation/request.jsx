@@ -31,6 +31,8 @@ export default function ReservationRequestScreen() {
   // Use months for duration instead of specific end date
   const [durationMonths, setDurationMonths] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
+  // Estado para controlar la visibilidad del diálogo de confirmación
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   // Calculate end date based on start date + duration months (for display only)
   const calculateEndDate = (start, months) => {
@@ -66,34 +68,44 @@ export default function ReservationRequestScreen() {
     }
   }, [selectedProperty, durationMonths]);
   
+  // Función para mostrar el diálogo de confirmación
+  const handleShowConfirmation = () => {
+    // Get current date without time portion for fair comparison
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    
+    // Ensure we have a valid start date
+    let start = new Date(startDateStr);
+    
+    if (isNaN(start.getTime())) {
+      // If invalid date, default to today
+      start = currentDate;
+      setStartDateStr(currentDate.toISOString().split('T')[0]);
+    }
+    
+    // If date is in the past, automatically use today's date
+    if (start < currentDate) {
+      start = currentDate;
+      setStartDateStr(currentDate.toISOString().split('T')[0]);
+      // Recalculate end date
+      setEndDateStr(calculateEndDate(currentDate.toISOString().split('T')[0], durationMonths));
+    }
+    
+    // Validate duration
+    if (durationMonths < 1) {
+      Alert.alert('Error', 'La duración mínima es de 1 mes');
+      return;
+    }
+    
+    // Mostrar diálogo de confirmación
+    setShowConfirmation(true);
+  };
+
+  // Función que ejecuta la creación de la reserva después de confirmar
   const handleCreateReservation = async () => {
     try {
-      // Get current date without time portion for fair comparison
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-      
-      // Ensure we have a valid start date
-      let start = new Date(startDateStr);
-      
-      if (isNaN(start.getTime())) {
-        // If invalid date, default to today
-        start = currentDate;
-        setStartDateStr(currentDate.toISOString().split('T')[0]);
-      }
-      
-      // If date is in the past, automatically use today's date
-      if (start < currentDate) {
-        start = currentDate;
-        setStartDateStr(currentDate.toISOString().split('T')[0]);
-        // Recalculate end date
-        setEndDateStr(calculateEndDate(currentDate.toISOString().split('T')[0], durationMonths));
-      }
-      
-      // Validate duration
-      if (durationMonths < 1) {
-        Alert.alert('Error', 'La duración mínima es de 1 mes');
-        return;
-      }
+      // Ocultar el diálogo de confirmación
+      setShowConfirmation(false);
       
       // Create reservation data
       const reservationData = {
@@ -127,6 +139,11 @@ export default function ReservationRequestScreen() {
       Alert.alert('Error', 'Ocurrió un error al crear la reserva');
       console.error(error);
     }
+  };
+  
+  // Función para cancelar la confirmación
+  const handleCancelReservation = () => {
+    setShowConfirmation(false);
   };
   
   // Format date for display
@@ -305,7 +322,7 @@ export default function ReservationRequestScreen() {
       
       <TouchableOpacity
         style={styles.reserveButton}
-        onPress={handleCreateReservation}
+        onPress={handleShowConfirmation}
         disabled={isLoadingReservation}
       >
         {isLoadingReservation ? (
@@ -314,6 +331,48 @@ export default function ReservationRequestScreen() {
           <Text style={styles.reserveButtonText}>Solicitar Reserva</Text>
         )}
       </TouchableOpacity>
+      
+      {/* Diálogo de confirmación */}
+      {showConfirmation && (
+        <View style={styles.confirmationOverlay}>
+          <View style={styles.confirmationDialog}>
+            <Text style={styles.confirmationTitle}>Confirmar Reserva</Text>
+            
+            <Text style={styles.confirmationText}>
+              ¿Estás seguro de que deseas solicitar esta reserva por {durationMonths} {durationMonths === 1 ? 'mes' : 'meses'}?
+            </Text>
+            
+            <Text style={styles.confirmationDetails}>
+              Propiedad: {selectedProperty?.titulo}
+            </Text>
+            <Text style={styles.confirmationDetails}>
+              Fecha inicio: {formatDate(startDateStr)}
+            </Text>
+            <Text style={styles.confirmationDetails}>
+              Fecha fin: {formatDate(endDateStr)}
+            </Text>
+            <Text style={styles.confirmationDetails}>
+              Costo total: ${totalPrice.toLocaleString()}
+            </Text>
+            
+            <View style={styles.confirmationButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={handleCancelReservation}
+              >
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.confirmButton}
+                onPress={handleCreateReservation}
+              >
+                <Text style={styles.confirmButtonText}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       
       <View style={styles.disclaimer}>
         <FontAwesome name="info-circle" size={16} color={COLORS.darkGray} />
@@ -562,5 +621,77 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     fontSize: 14,
     flex: 1,
+  },
+  // Estilos para el diálogo de confirmación
+  confirmationOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 1000,
+  },
+  confirmationDialog: {
+    backgroundColor: COLORS.white,
+    borderRadius: 15,
+    padding: 20,
+    width: '100%',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  confirmationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  confirmationText: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  confirmationDetails: {
+    fontSize: 14,
+    color: COLORS.darkGray,
+    marginBottom: 8,
+  },
+  confirmationButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: COLORS.lightGray,
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: COLORS.text,
+    fontWeight: '500',
+    fontSize: 16,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: COLORS.primary,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

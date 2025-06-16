@@ -5,7 +5,15 @@ import { COLORS } from '../utils/constants';
 
 const AnimatedTabBar = ({ state, descriptors, navigation }) => {
   const { bottom } = useSafeAreaInsets();
-  const indicatorWidth = Dimensions.get('window').width / state.routes.length;
+  
+  // Filtrar solo las rutas visibles (donde tabBarVisible no es false)
+  const visibleRoutes = state.routes.filter((route) => {
+    const { options } = descriptors[route.key];
+    return options.tabBarVisible !== false;
+  });
+  
+  // Calcular el ancho del indicador basado en rutas visibles
+  const indicatorWidth = Dimensions.get('window').width / visibleRoutes.length;
   
   // Crear una referencia animada para el indicador
   const translateX = useRef(new Animated.Value(0)).current;
@@ -15,21 +23,36 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
   
   // Mover el indicador cuando cambia la tab activa
   useEffect(() => {
-    // Animar el movimiento del indicador
+    // Calcular la posición correcta del indicador basado en pestañas visibles
+    let visibleIndex = 0;
+    
+    // Contar cuántas pestañas visibles hay antes de la pestaña activa
+    for (let i = 0; i < state.index; i++) {
+      const { options } = descriptors[state.routes[i].key];
+      if (options.tabBarVisible !== false) {
+        visibleIndex++;
+      }
+    }
+    
+    // Animar el movimiento del indicador usando el índice de pestañas visibles
     Animated.spring(translateX, {
-      toValue: state.index * indicatorWidth,
+      toValue: visibleIndex * indicatorWidth,
       friction: 8,
       tension: 60,
       useNativeDriver: true
     }).start();
     
     // Animar los iconos
-    state.routes.forEach((_, i) => {
-      Animated.timing(scaleValues[i], {
-        toValue: i === state.index ? 1.2 : 1,
-        duration: 200,
-        useNativeDriver: true
-      }).start();
+    state.routes.forEach((route, i) => {
+      // Solo animar si la pestaña es visible
+      const routeOptions = descriptors[route.key].options;
+      if (routeOptions.tabBarVisible !== false) {
+        Animated.timing(scaleValues[i], {
+          toValue: i === state.index ? 1.2 : 1,
+          duration: 200,
+          useNativeDriver: true
+        }).start();
+      }
     });
   }, [state.index, indicatorWidth]);
 
@@ -53,9 +76,18 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
           const label = options.tabBarLabel || options.title || route.name;
           const isFocused = state.index === index;
           
-          // Ocultar la pestaña si tiene href: null (para propietarios)
-          if (options.href === null) {
+          // Ocultar la pestaña si tabBarVisible es false
+          if (options.tabBarVisible === false) {
             return null;
+          }
+          
+          // Calcular el índice visible para esta pestaña (para animaciones)
+          let visibleIndex = 0;
+          for (let i = 0; i < index; i++) {
+            const routeOptions = descriptors[state.routes[i].key].options;
+            if (routeOptions.tabBarVisible !== false) {
+              visibleIndex++;
+            }
           }
 
           const onPress = () => {

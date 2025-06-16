@@ -122,8 +122,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <FontAwesome5 name="home" size={size} color={color} />
           ),
-          // Ocultamos la pestaña desde las opciones en lugar de usar un condicional
-          href: isOwner ? undefined : null,
+          // Ocultamos la pestaña usando tabBarVisible basado en el rol
+          tabBarVisible: isOwner,
         }}
       />
 
