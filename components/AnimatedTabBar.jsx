@@ -1,130 +1,186 @@
-import React, { useEffect, useRef } from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Animated } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS } from '../utils/constants';
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Animated,
+  Text,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "expo-haptics";
+import { COLORS } from "../utils/constants";
+import { useTheme } from "../utils/themeContext";
 
 const AnimatedTabBar = ({ state, descriptors, navigation }) => {
   const { bottom } = useSafeAreaInsets();
-  
-  // Filtrar solo las rutas visibles (donde tabBarVisible no es false)
+  const { currentTheme } = useTheme();
+
+  // Tab colors specific to Aloja-T brand
+  const tabColors = {
+    index: currentTheme.primary, // Amarillo para Home
+    search: currentTheme.accent, // Verde para Search
+    reservations: "#FF8F00", // Naranja para Reservations
+    notifications: "#FFB300", // Naranja claro para Notifications
+    owner: currentTheme.accent, // Verde para Owner
+    profile: "#E65100", // Rojo-naranja para Profile
+  };
+
+  // Filtrar solo las rutas visibles
   const visibleRoutes = state.routes.filter((route) => {
     const { options } = descriptors[route.key];
     return options.tabBarVisible !== false;
   });
-  
-  // Calcular el ancho del indicador basado en rutas visibles
-  const indicatorWidth = Dimensions.get('window').width / visibleRoutes.length;
-  
-  // Crear una referencia animada para el indicador
-  const translateX = useRef(new Animated.Value(0)).current;
-  const scaleValues = useRef(
-    state.routes.map(() => new Animated.Value(1))
+
+  // Animation values for each tab
+  const animationValues = useRef(
+    state.routes.map(() => ({
+      scale: new Animated.Value(0.8),
+      width: new Animated.Value(50),
+      opacity: new Animated.Value(0),
+    }))
   ).current;
-  
-  // Mover el indicador cuando cambia la tab activa
+
+  // Animate tabs when active tab changes
   useEffect(() => {
-    // Calcular la posición correcta del indicador basado en pestañas visibles
-    let visibleIndex = 0;
-    
-    // Contar cuántas pestañas visibles hay antes de la pestaña activa
-    for (let i = 0; i < state.index; i++) {
-      const { options } = descriptors[state.routes[i].key];
-      if (options.tabBarVisible !== false) {
-        visibleIndex++;
-      }
-    }
-    
-    // Animar el movimiento del indicador usando el índice de pestañas visibles
-    Animated.spring(translateX, {
-      toValue: visibleIndex * indicatorWidth,
-      friction: 8,
-      tension: 60,
-      useNativeDriver: true
-    }).start();
-    
-    // Animar los iconos
     state.routes.forEach((route, i) => {
-      // Solo animar si la pestaña es visible
-      const routeOptions = descriptors[route.key].options;
-      if (routeOptions.tabBarVisible !== false) {
-        Animated.timing(scaleValues[i], {
-          toValue: i === state.index ? 1.2 : 1,
-          duration: 200,
-          useNativeDriver: true
-        }).start();
-      }
+      const { options } = descriptors[route.key];
+      if (options.tabBarVisible === false) return;
+
+      const isFocused = i === state.index;
+      const animations = animationValues[i];
+
+      // Animate scale (native driver)
+      Animated.timing(animations.scale, {
+        toValue: isFocused ? 1 : 0.8,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      // Animate width (layout driver - cannot use native)
+      Animated.timing(animations.width, {
+        toValue: isFocused ? 120 : 50,
+        duration: 300,
+        useNativeDriver: false,
+      }).start();
+
+      // Animate text opacity (native driver)
+      Animated.timing(animations.opacity, {
+        toValue: isFocused ? 1 : 0,
+        duration: isFocused ? 400 : 200,
+        delay: isFocused ? 100 : 0,
+        useNativeDriver: true,
+      }).start();
     });
-  }, [state.index, indicatorWidth]);
+  }, [state.index]);
+
+  const getTabColor = (routeName) => {
+    return tabColors[routeName] || currentTheme.primary;
+  };
+
+  const getTabLabel = (route) => {
+    const { options } = descriptors[route.key];
+    const label = options.tabBarLabel || options.title || route.name;
+
+    // Convert route names to Spanish labels
+    const labelMap = {
+      index: "Inicio",
+      search: "Buscar",
+      reservations: "Reservas",
+      notifications: "Alertas",
+      owner: "Propiedad",
+      profile: "Perfil",
+    };
+
+    return labelMap[route.name] || label;
+  };
+
+  const onPress = (route, isFocused) => {
+    // Add haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const event = navigation.emit({
+      type: "tabPress",
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
 
   return (
-    <View style={[styles.container, { paddingBottom: bottom || 8 }]}>
-      {/* Indicador animado */}
-      <Animated.View 
-        style={[
-          styles.indicator,
-          {
-            transform: [{ translateX }],
-            width: indicatorWidth,
-          }
-        ]} 
-      />
-      
-      {/* Tabs */}
+    <View
+      style={[
+        styles.container,
+        { paddingBottom: bottom || 8, backgroundColor: currentTheme.surface },
+      ]}
+    >
       <View style={styles.tabContainer}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
-          const label = options.tabBarLabel || options.title || route.name;
           const isFocused = state.index === index;
-          
-          // Ocultar la pestaña si tabBarVisible es false
+          const tabColor = getTabColor(route.name);
+          const label = getTabLabel(route);
+
+          // Hide tab if tabBarVisible is false
           if (options.tabBarVisible === false) {
             return null;
           }
-          
-          // Calcular el índice visible para esta pestaña (para animaciones)
-          let visibleIndex = 0;
-          for (let i = 0; i < index; i++) {
-            const routeOptions = descriptors[state.routes[i].key].options;
-            if (routeOptions.tabBarVisible !== false) {
-              visibleIndex++;
-            }
-          }
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name);
-            }
-          };
 
           return (
             <TouchableOpacity
               key={route.key}
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-              accessibilityLabel={options.tabBarAccessibilityLabel}
-              testID={options.tabBarTestID}
-              onPress={onPress}
+              onPress={() => onPress(route, isFocused)}
               style={styles.tab}
+              activeOpacity={0.8}
             >
               <Animated.View
                 style={[
-                  styles.iconContainer,
-                  isFocused && styles.activeIconContainer,
-                  { transform: [{ scale: scaleValues[index] }] }
+                  styles.tabContent,
+                  {
+                    width: animationValues[index].width,
+                    backgroundColor: isFocused
+                      ? `${tabColor}20`
+                      : "transparent",
+                  },
                 ]}
               >
-                {options.tabBarIcon &&
-                  options.tabBarIcon({
-                    focused: isFocused,
-                    color: isFocused ? COLORS.primary : COLORS.darkGray,
-                    size: 24,
-                  })}
+                <Animated.View
+                  style={{
+                    transform: [{ scale: animationValues[index].scale }],
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <View style={styles.iconContainer}>
+                    {options.tabBarIcon &&
+                      options.tabBarIcon({
+                        focused: isFocused,
+                        color: isFocused
+                          ? tabColor
+                          : currentTheme.textSecondary,
+                        size: 24,
+                      })}
+                  </View>
+
+                  <Animated.Text
+                    style={[
+                      styles.tabLabel,
+                      {
+                        color: isFocused
+                          ? tabColor
+                          : currentTheme.textSecondary,
+                        opacity: animationValues[index].opacity,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </Animated.Text>
+                </Animated.View>
               </Animated.View>
             </TouchableOpacity>
           );
@@ -136,37 +192,48 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
-    flexDirection: 'column',
-    borderTopColor: COLORS.lightGray,
+    flexDirection: "column",
     borderTopWidth: 1,
-    position: 'relative',
+    borderTopColor: COLORS.lightGray,
+    position: "relative",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tabContainer: {
-    flexDirection: 'row',
-    height: 60,
+    flexDirection: "row",
+    height: 70,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   tab: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tabContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 25,
+    minWidth: 50,
+    height: 50,
   },
   iconContainer: {
-    padding: 8,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-  activeIconContainer: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  indicator: {
-    height: 3,
-    backgroundColor: COLORS.primary,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    zIndex: 100,
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 6,
   },
 });
 

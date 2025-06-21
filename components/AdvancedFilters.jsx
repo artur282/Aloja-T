@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,26 +10,34 @@ import {
   Switch,
   FlatList,
   SafeAreaView,
-} from 'react-native';
-import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
-import Slider from '@react-native-community/slider';
-import { 
-  COLORS, 
-  PROPERTY_TYPES, 
-  AMENITIES, 
-  SORT_OPTIONS, 
-  PRICE_RANGES, 
-  CAPACITY_OPTIONS 
-} from '../utils/constants';
-import estadosCiudades from '../data/ciudades.json';
+} from "react-native";
+import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import Slider from "@react-native-community/slider";
+import {
+  COLORS,
+  PROPERTY_TYPES,
+  AMENITIES,
+  SORT_OPTIONS,
+  PRICE_RANGES,
+  CAPACITY_OPTIONS,
+} from "../utils/constants";
+import { useTheme } from "../utils/themeContext";
+import { Button } from "./base";
+import estadosCiudades from "../data/ciudades.json";
 
-const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {} }) => {
+const AdvancedFilters = ({
+  visible,
+  onClose,
+  onApplyFilters,
+  initialFilters = {},
+}) => {
+  const { currentTheme } = useTheme();
   const [filters, setFilters] = useState({
-    location: initialFilters.location || '',
-    ciudad: initialFilters.ciudad || '',
-    type: initialFilters.type || '',
-    sortBy: initialFilters.sortBy || 'newest',
+    location: initialFilters.location || "",
+    ciudad: initialFilters.ciudad || "",
+    type: initialFilters.type || "",
+    sortBy: initialFilters.sortBy || "newest",
     priceRange: initialFilters.priceRange || null,
     minPrice: initialFilters.minPrice || 0,
     maxPrice: initialFilters.maxPrice || 500, // Adjusted for USD
@@ -37,31 +45,31 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
     amenities: initialFilters.amenities || [],
     useCustomPriceRange: initialFilters.useCustomPriceRange || false,
   });
-  
+
   // Estados para el modal de selección de ciudad
   const [showCitiesModal, setShowCitiesModal] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  
+  const [searchText, setSearchText] = useState("");
+
   // Obtener todas las ciudades de todos los estados
   const todasLasCiudades = useMemo(() => {
     const ciudades = [];
-    Object.values(estadosCiudades).forEach(ciudadesArray => {
+    Object.values(estadosCiudades).forEach((ciudadesArray) => {
       ciudades.push(...ciudadesArray);
     });
     return [...new Set(ciudades)].sort();
   }, []);
 
   const handleAmenityToggle = (amenity) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       amenities: prev.amenities.includes(amenity)
-        ? prev.amenities.filter(a => a !== amenity)
-        : [...prev.amenities, amenity]
+        ? prev.amenities.filter((a) => a !== amenity)
+        : [...prev.amenities, amenity],
     }));
   };
 
   const handlePriceRangeSelect = (range) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       priceRange: range,
       minPrice: range.min,
@@ -71,7 +79,7 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
   };
 
   const handleCustomPriceToggle = (value) => {
-    setFilters(prev => ({
+    setFilters((prev) => ({
       ...prev,
       useCustomPriceRange: value,
       priceRange: value ? null : prev.priceRange,
@@ -89,17 +97,17 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
       capacity: filters.capacity > 1 ? filters.capacity : null,
       amenities: filters.amenities.length > 0 ? filters.amenities : null,
     };
-    
+
     onApplyFilters(searchParams);
     onClose();
   };
 
   const handleReset = () => {
     setFilters({
-      location: '',
-      ciudad: '',
-      type: '',
-      sortBy: 'newest',
+      location: "",
+      ciudad: "",
+      type: "",
+      sortBy: "newest",
       priceRange: null,
       minPrice: 0,
       maxPrice: 500, // Adjusted for USD
@@ -129,22 +137,31 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Ubicación General */}
 
-
           {/* Ciudad */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Ciudad</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={styles.selector}
               onPress={() => {
-                setSearchText('');
+                setSearchText("");
                 setShowCitiesModal(true);
               }}
             >
-              <Text style={filters.ciudad ? styles.selectorText : styles.selectorPlaceholder}>
-                {filters.ciudad || 'Seleccionar ciudad'}
+              <Text
+                style={
+                  filters.ciudad
+                    ? styles.selectorText
+                    : styles.selectorPlaceholder
+                }
+              >
+                {filters.ciudad || "Seleccionar ciudad"}
               </Text>
-              <MaterialIcons name="arrow-drop-down" size={20} color={COLORS.darkGray} />
+              <MaterialIcons
+                name="arrow-drop-down"
+                size={20}
+                color={COLORS.darkGray}
+              />
             </TouchableOpacity>
           </View>
 
@@ -153,20 +170,36 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
             <Text style={styles.sectionTitle}>Tipo de Propiedad</Text>
             <View style={styles.typeContainer}>
               <TouchableOpacity
-                style={[styles.typeButton, filters.type === '' && styles.typeButtonActive]}
-                onPress={() => setFilters(prev => ({ ...prev, type: '' }))}
+                style={[
+                  styles.typeButton,
+                  filters.type === "" && styles.typeButtonActive,
+                ]}
+                onPress={() => setFilters((prev) => ({ ...prev, type: "" }))}
               >
-                <Text style={[styles.typeText, filters.type === '' && styles.typeTextActive]}>
+                <Text
+                  style={[
+                    styles.typeText,
+                    filters.type === "" && styles.typeTextActive,
+                  ]}
+                >
                   Todos
                 </Text>
               </TouchableOpacity>
-              {PROPERTY_TYPES.map(type => (
+              {PROPERTY_TYPES.map((type) => (
                 <TouchableOpacity
                   key={type}
-                  style={[styles.typeButton, filters.type === type && styles.typeButtonActive]}
-                  onPress={() => setFilters(prev => ({ ...prev, type }))}
+                  style={[
+                    styles.typeButton,
+                    filters.type === type && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setFilters((prev) => ({ ...prev, type }))}
                 >
-                  <Text style={[styles.typeText, filters.type === type && styles.typeTextActive]}>
+                  <Text
+                    style={[
+                      styles.typeText,
+                      filters.type === type && styles.typeTextActive,
+                    ]}
+                  >
                     {type.charAt(0).toUpperCase() + type.slice(1)}
                   </Text>
                 </TouchableOpacity>
@@ -180,11 +213,17 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
             <View style={styles.pickerContainer}>
               <Picker
                 selectedValue={filters.sortBy}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, sortBy: value }))}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({ ...prev, sortBy: value }))
+                }
                 style={styles.picker}
               >
-                {SORT_OPTIONS.map(option => (
-                  <Picker.Item key={option.value} label={option.label} value={option.value} />
+                {SORT_OPTIONS.map((option) => (
+                  <Picker.Item
+                    key={option.value}
+                    label={option.label}
+                    value={option.value}
+                  />
                 ))}
               </Picker>
             </View>
@@ -193,7 +232,7 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           {/* Rango de Precios */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Precio por Mes</Text>
-            
+
             <View style={styles.switchContainer}>
               <Text style={styles.switchLabel}>Rango personalizado</Text>
               <Switch
@@ -211,14 +250,18 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
                     key={index}
                     style={[
                       styles.priceRangeButton,
-                      filters.priceRange === range && styles.priceRangeButtonActive
+                      filters.priceRange === range &&
+                        styles.priceRangeButtonActive,
                     ]}
                     onPress={() => handlePriceRangeSelect(range)}
                   >
-                    <Text style={[
-                      styles.priceRangeText,
-                      filters.priceRange === range && styles.priceRangeTextActive
-                    ]}>
+                    <Text
+                      style={[
+                        styles.priceRangeText,
+                        filters.priceRange === range &&
+                          styles.priceRangeTextActive,
+                      ]}
+                    >
                       {range.label}
                     </Text>
                   </TouchableOpacity>
@@ -227,9 +270,10 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
             ) : (
               <View style={styles.customPriceContainer}>
                 <Text style={styles.priceLabel}>
-                  Precio: ${filters.minPrice.toLocaleString()} - ${filters.maxPrice.toLocaleString()}
+                  Precio: ${filters.minPrice.toLocaleString()} - $
+                  {filters.maxPrice.toLocaleString()}
                 </Text>
-                
+
                 <Text style={styles.fieldLabel}>Precio mínimo</Text>
                 <Slider
                   style={styles.slider}
@@ -237,12 +281,14 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
                   maximumValue={500} // Adjusted for USD
                   step={10} // Adjusted for USD
                   value={filters.minPrice}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, minPrice: value }))}
+                  onValueChange={(value) =>
+                    setFilters((prev) => ({ ...prev, minPrice: value }))
+                  }
                   minimumTrackTintColor={COLORS.primary}
                   maximumTrackTintColor={COLORS.lightGray}
                   thumbStyle={{ backgroundColor: COLORS.primary }}
                 />
-                
+
                 <Text style={styles.fieldLabel}>Precio máximo</Text>
                 <Slider
                   style={styles.slider}
@@ -250,7 +296,9 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
                   maximumValue={500} // Adjusted for USD
                   step={10} // Adjusted for USD
                   value={filters.maxPrice}
-                  onValueChange={(value) => setFilters(prev => ({ ...prev, maxPrice: value }))}
+                  onValueChange={(value) =>
+                    setFilters((prev) => ({ ...prev, maxPrice: value }))
+                  }
                   minimumTrackTintColor={COLORS.primary}
                   maximumTrackTintColor={COLORS.lightGray}
                   thumbStyle={{ backgroundColor: COLORS.primary }}
@@ -263,19 +311,25 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Capacidad</Text>
             <View style={styles.capacityContainer}>
-              {CAPACITY_OPTIONS.map(option => (
+              {CAPACITY_OPTIONS.map((option) => (
                 <TouchableOpacity
                   key={option.value}
                   style={[
                     styles.capacityButton,
-                    filters.capacity === option.value && styles.capacityButtonActive
+                    filters.capacity === option.value &&
+                      styles.capacityButtonActive,
                   ]}
-                  onPress={() => setFilters(prev => ({ ...prev, capacity: option.value }))}
+                  onPress={() =>
+                    setFilters((prev) => ({ ...prev, capacity: option.value }))
+                  }
                 >
-                  <Text style={[
-                    styles.capacityText,
-                    filters.capacity === option.value && styles.capacityTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.capacityText,
+                      filters.capacity === option.value &&
+                        styles.capacityTextActive,
+                    ]}
+                  >
                     {option.label}
                   </Text>
                 </TouchableOpacity>
@@ -287,19 +341,23 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Servicios Disponibles</Text>
             <View style={styles.amenitiesContainer}>
-              {AMENITIES.map(amenity => (
+              {AMENITIES.map((amenity) => (
                 <TouchableOpacity
                   key={amenity}
                   style={[
                     styles.amenityButton,
-                    filters.amenities.includes(amenity) && styles.amenityButtonActive
+                    filters.amenities.includes(amenity) &&
+                      styles.amenityButtonActive,
                   ]}
                   onPress={() => handleAmenityToggle(amenity)}
                 >
-                  <Text style={[
-                    styles.amenityText,
-                    filters.amenities.includes(amenity) && styles.amenityTextActive
-                  ]}>
+                  <Text
+                    style={[
+                      styles.amenityText,
+                      filters.amenities.includes(amenity) &&
+                        styles.amenityTextActive,
+                    ]}
+                  >
                     {amenity}
                   </Text>
                 </TouchableOpacity>
@@ -308,19 +366,21 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
           </View>
         </ScrollView>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.applyButton} onPress={handleApply}>
-            <Text style={styles.applyButtonText}>Aplicar Filtros</Text>
-          </TouchableOpacity>
+        <View
+          style={[styles.footer, { backgroundColor: currentTheme.surface }]}
+        >
+          <Button
+            title="Aplicar Filtros"
+            onPress={handleApply}
+            variant="primary"
+            size="large"
+            style={styles.applyButton}
+          />
         </View>
       </View>
 
       {/* Modal de Selección de Ciudad */}
-      <Modal
-        visible={showCitiesModal}
-        animationType="slide"
-        transparent={true}
-      >
+      <Modal visible={showCitiesModal} animationType="slide" transparent={true}>
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -329,39 +389,51 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
                 <MaterialIcons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.searchContainer}>
-              <TextInput 
+              <TextInput
                 style={styles.searchInput}
                 placeholder="Buscar ciudad..."
                 value={searchText}
                 onChangeText={setSearchText}
               />
               {searchText ? (
-                <TouchableOpacity onPress={() => setSearchText('')}>
-                  <MaterialIcons name="close" size={20} color={COLORS.darkGray} />
+                <TouchableOpacity onPress={() => setSearchText("")}>
+                  <MaterialIcons
+                    name="close"
+                    size={20}
+                    color={COLORS.darkGray}
+                  />
                 </TouchableOpacity>
               ) : (
-                <MaterialIcons name="search" size={20} color={COLORS.darkGray} />
+                <MaterialIcons
+                  name="search"
+                  size={20}
+                  color={COLORS.darkGray}
+                />
               )}
             </View>
-            
+
             <FlatList
-              data={todasLasCiudades.filter(city => 
+              data={todasLasCiudades.filter((city) =>
                 city.toLowerCase().includes(searchText.toLowerCase())
               )}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.modalItem}
                   onPress={() => {
-                    setFilters(prev => ({ ...prev, ciudad: item }));
+                    setFilters((prev) => ({ ...prev, ciudad: item }));
                     setShowCitiesModal(false);
                   }}
                 >
                   <Text style={styles.modalItemText}>{item}</Text>
                   {filters.ciudad === item && (
-                    <MaterialIcons name="check" size={20} color={COLORS.primary} />
+                    <MaterialIcons
+                      name="check"
+                      size={20}
+                      color={COLORS.primary}
+                    />
                   )}
                 </TouchableOpacity>
               )}
@@ -380,9 +452,9 @@ const AdvancedFilters = ({ visible, onClose, onApplyFilters, initialFilters = {}
 
 const styles = StyleSheet.create({
   selector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     backgroundColor: COLORS.lightGray,
     borderRadius: 8,
     padding: 12,
@@ -397,31 +469,31 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    maxHeight: "80%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: COLORS.lightGray,
     margin: 15,
     borderRadius: 8,
@@ -433,9 +505,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.lightGray,
@@ -446,7 +518,7 @@ const styles = StyleSheet.create({
   },
   emptyList: {
     padding: 20,
-    textAlign: 'center',
+    textAlign: "center",
     color: COLORS.darkGray,
   },
   container: {
@@ -454,9 +526,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
@@ -464,13 +536,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
   },
   resetText: {
     color: COLORS.primary,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   content: {
     flex: 1,
@@ -481,7 +553,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: COLORS.text,
     marginBottom: 15,
   },
@@ -509,8 +581,8 @@ const styles = StyleSheet.create({
     height: 50,
   },
   typeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   typeButton: {
@@ -531,12 +603,12 @@ const styles = StyleSheet.create({
   },
   typeTextActive: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   switchContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   switchLabel: {
@@ -558,13 +630,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   priceRangeText: {
-    textAlign: 'center',
+    textAlign: "center",
     color: COLORS.text,
     fontSize: 14,
   },
   priceRangeTextActive: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   customPriceContainer: {
     backgroundColor: COLORS.white,
@@ -575,19 +647,19 @@ const styles = StyleSheet.create({
   },
   priceLabel: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.text,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 15,
   },
   slider: {
-    width: '100%',
+    width: "100%",
     height: 40,
     marginBottom: 10,
   },
   capacityContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   capacityButton: {
@@ -608,11 +680,11 @@ const styles = StyleSheet.create({
   },
   capacityTextActive: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   amenitiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   amenityButton: {
@@ -633,7 +705,7 @@ const styles = StyleSheet.create({
   },
   amenityTextActive: {
     color: COLORS.white,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   footer: {
     padding: 20,
@@ -645,12 +717,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     padding: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   applyButtonText: {
     color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
 

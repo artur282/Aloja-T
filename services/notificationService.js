@@ -1,4 +1,4 @@
-import supabase from './supabaseClient';
+import supabase from "./supabaseClient";
 
 class NotificationService {
   // Store active subscriptions to manage them
@@ -12,26 +12,28 @@ class NotificationService {
       // Create a channel subscription with filter for the specific user
       const subscription = supabase
         .channel(`notifications:${userId}`)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `id_usuario_destinatario=eq.${userId}`
-        }, (payload) => {
-          // Call the callback with the new notification
-          if (onNewNotification) {
-            onNewNotification(payload.new);
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `id_usuario_destinatario=eq.${userId}`,
+          },
+          (payload) => {
+            // Call the callback with the new notification
+            if (onNewNotification) {
+              onNewNotification(payload.new);
+            }
           }
-        })
-        .subscribe((status) => {
-          console.log(`Subscription status for notifications: ${status}`);
-        });
+        )
+        .subscribe();
 
       // Store the subscription for cleanup
       this.subscriptions.push(subscription);
       return subscription;
     } catch (error) {
-      console.error('Error subscribing to notifications:', error);
+      console.error("Error subscribing to notifications:", error);
       return null;
     }
   }
@@ -42,28 +44,32 @@ class NotificationService {
 
     try {
       // Create a filter condition for all owned properties
-      const filterCondition = propertyIds.map(id => `id_propiedad=eq.${id}`).join(',');
+      const filterCondition = propertyIds
+        .map((id) => `id_propiedad=eq.${id}`)
+        .join(",");
 
       const subscription = supabase
-        .channel('reservations:owner')
-        .on('postgres_changes', {
-          event: '*', // Listen for all changes (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'reservations',
-          filter: filterCondition
-        }, (payload) => {
-          if (onReservationUpdate) {
-            onReservationUpdate(payload);
+        .channel("reservations:owner")
+        .on(
+          "postgres_changes",
+          {
+            event: "*", // Listen for all changes (INSERT, UPDATE, DELETE)
+            schema: "public",
+            table: "reservations",
+            filter: filterCondition,
+          },
+          (payload) => {
+            if (onReservationUpdate) {
+              onReservationUpdate(payload);
+            }
           }
-        })
-        .subscribe((status) => {
-          console.log(`Subscription status for reservations: ${status}`);
-        });
+        )
+        .subscribe();
 
       this.subscriptions.push(subscription);
       return subscription;
     } catch (error) {
-      console.error('Error subscribing to reservation changes:', error);
+      console.error("Error subscribing to reservation changes:", error);
       return null;
     }
   }
@@ -74,7 +80,7 @@ class NotificationService {
 
     try {
       let filterCondition;
-      
+
       if (isOwner && propertyIds && propertyIds.length > 0) {
         // For property owners, subscribe to payments for their properties
         // This requires a more complex query to join reservations and properties
@@ -85,25 +91,27 @@ class NotificationService {
       }
 
       const subscription = supabase
-        .channel('payments:updates')
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'payments'
-          // Filter will be applied via notifications table instead
-        }, (payload) => {
-          if (onPaymentUpdate) {
-            onPaymentUpdate(payload);
+        .channel("payments:updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "payments",
+            // Filter will be applied via notifications table instead
+          },
+          (payload) => {
+            if (onPaymentUpdate) {
+              onPaymentUpdate(payload);
+            }
           }
-        })
-        .subscribe((status) => {
-          console.log(`Subscription status for payments: ${status}`);
-        });
+        )
+        .subscribe();
 
       this.subscriptions.push(subscription);
       return subscription;
     } catch (error) {
-      console.error('Error subscribing to payment changes:', error);
+      console.error("Error subscribing to payment changes:", error);
       return null;
     }
   }
@@ -111,17 +119,17 @@ class NotificationService {
   // Clean up all subscriptions
   unsubscribeAll() {
     try {
-      this.subscriptions.forEach(subscription => {
+      this.subscriptions.forEach((subscription) => {
         if (subscription) {
           try {
             subscription.unsubscribe();
           } catch (subError) {
-            console.error('Error unsubscribing from subscription:', subError);
+            console.error("Error unsubscribing from subscription:", subError);
           }
         }
       });
     } catch (error) {
-      console.error('Error unsubscribing from all subscriptions:', error);
+      console.error("Error unsubscribing from all subscriptions:", error);
     } finally {
       this.subscriptions = [];
     }
