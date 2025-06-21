@@ -1,9 +1,7 @@
 {
   "expo": {
     "scheme": "acme",
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "name": "aloja-T",
     "slug": "alojate-app",
     "icon": "./img/icono.png",
@@ -23,7 +21,12 @@
       "adaptiveIcon": {
         "foregroundImage": "./img/icono.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "ios": {
       "supportsTablet": true

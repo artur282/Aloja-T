@@ -1,10 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { useState, useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
@@ -13,29 +7,23 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   ScrollView,
   RefreshControl,
-  Animated,
 } from "react-native";
-import { Image } from "expo-image";
 import { router } from "expo-router";
-import { FontAwesome } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import usePropertyStore from "../../store/propertyStore";
-import {
-  COLORS,
-  PROPERTY_TYPES,
-  SORT_OPTIONS,
-  THEME,
-} from "../../utils/constants";
+import { SPACING, BORDER_RADIUS } from "../../utils/constants";
 import { useTheme } from "../../utils/themeContext";
 import AdvancedFilters from "../../components/AdvancedFilters";
-import { PropertyCard, LoadingCard } from "../../components/base";
+
 import {
-  fadeInAnimation,
-  staggerAnimation,
-  lightHaptic,
-} from "../../utils/animations";
+  GradientHeader,
+  ModernPropertyCard,
+  FloatingCard,
+  ModernEmptyState,
+  ModernListSkeleton,
+} from "../../components/base";
 import ciudadesData from "../../data/ciudades.json";
 
 export default function SearchScreen() {
@@ -51,79 +39,38 @@ export default function SearchScreen() {
     usePropertyStore();
   const { currentTheme } = useTheme();
 
-  // Lista plana de todas las ciudades
-  const todasLasCiudades = Object.values(ciudadesData).flat();
+  // Ciudades sugeridas para autocompletado - extraídas del archivo JSON
+  const SUGGESTED_CITIES = Object.values(ciudadesData).flat();
 
-  // Fetch properties when component mounts
-  useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  // Pull to refresh handler
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await fetchProperties();
-    } catch (error) {
-      console.error("Error refreshing properties:", error);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchProperties]);
-
-  // Refresh properties whenever the screen comes into focus
+  // Load properties on component mount
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       fetchProperties();
-      return () => {};
-    }, [])
+    }, [fetchProperties])
   );
 
-  // Count active filters
-  useEffect(() => {
-    let count = 0;
-    if (currentFilters.location) count++;
-    if (currentFilters.estado) count++;
-    if (currentFilters.ciudad) count++;
-    if (currentFilters.type) count++;
-    if (currentFilters.minPrice) count++;
-    if (currentFilters.maxPrice && currentFilters.maxPrice < 50000) count++;
-    if (currentFilters.capacity && currentFilters.capacity > 1) count++;
-    if (currentFilters.amenities && currentFilters.amenities.length > 0)
-      count++;
-    if (currentFilters.sortBy && currentFilters.sortBy !== "newest") count++;
-    setActiveFiltersCount(count);
-  }, [currentFilters]);
+  // Handle search input change with debouncing
+  const handleSearchChange = useCallback((text) => {
+    setSearchQuery(text);
 
-  // Filtrar ciudades basado en el texto ingresado
-  const filterCities = (text) => {
-    if (!text) {
+    if (text.length > 0) {
+      const filtered = SUGGESTED_CITIES.filter((city) =>
+        city.toLowerCase().includes(text.toLowerCase())
+      ).slice(0, 5);
+      setSuggestedCities(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
       setSuggestedCities([]);
       setShowSuggestions(false);
-      return;
     }
+  }, []);
 
-    const filtered = todasLasCiudades
-      .filter((city) => city.toLowerCase().includes(text.toLowerCase()))
-      .slice(0, 5); // Limitar a 5 sugerencias
-
-    setSuggestedCities(filtered);
-    setShowSuggestions(filtered.length > 0);
-  };
-
-  // Manejar cambio en el texto de búsqueda
-  const handleSearchChange = (text) => {
-    setSearchQuery(text);
-    filterCities(text);
-  };
-
-  // Seleccionar una ciudad sugerida
+  // Select suggested city
   const selectCity = (city) => {
     setSearchQuery(city);
     setSuggestedCities([]);
     setShowSuggestions(false);
 
-    // Buscar automáticamente con la ciudad seleccionada
     const searchParams = {
       ciudad: city,
       type: selectedType,
@@ -134,7 +81,7 @@ export default function SearchScreen() {
 
   const handleSearch = () => {
     const searchParams = {
-      ciudad: searchQuery, // Cambiar location por ciudad
+      ciudad: searchQuery,
       type: selectedType,
       ...currentFilters,
     };
@@ -144,18 +91,28 @@ export default function SearchScreen() {
 
   const handleAdvancedFilters = (filters) => {
     setCurrentFilters(filters);
-    setSearchQuery(filters.ciudad || ""); // Cambiar location por ciudad
-    setSelectedType(filters.type || "");
+    const filtersCount = Object.values(filters).filter(
+      (value) =>
+        value !== null &&
+        value !== "" &&
+        value !== 0 &&
+        (Array.isArray(value) ? value.length > 0 : true)
+    ).length;
+    setActiveFiltersCount(filtersCount);
 
-    // Apply the filters immediately
-    searchProperties(filters);
-    setShowSuggestions(false);
+    const searchParams = {
+      ciudad: searchQuery,
+      type: selectedType,
+      ...filters,
+    };
+    searchProperties(searchParams);
   };
 
   const handleClearAllFilters = () => {
     setSearchQuery("");
     setSelectedType("");
     setCurrentFilters({});
+    setActiveFiltersCount(0);
     fetchProperties();
   };
 
@@ -163,25 +120,25 @@ export default function SearchScreen() {
     router.push(`/property/${propertyId}`);
   };
 
-  const getCurrentSortLabel = () => {
-    const sortOption = SORT_OPTIONS.find(
-      (option) => option.value === currentFilters.sortBy
-    );
-    return sortOption ? sortOption.label : "Más recientes";
-  };
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchProperties();
+    setRefreshing(false);
+  }, [fetchProperties]);
 
-  // Optimized render function with useCallback
+  // Optimized render function
   const renderPropertyItem = useCallback(
     ({ item }) => (
-      <PropertyCard
+      <ModernPropertyCard
         property={{
           ...item,
           imagenes: item.galeria_fotos,
-          precio: item.precio_noche,
-          tipo: item.tipo_propiedad || "Propiedad",
+          precio_noche: item.precio_noche,
+          tipo_propiedad: item.tipo_propiedad || "Propiedad",
         }}
         onPress={() => handlePropertyPress(item.id)}
-        style={styles.optimizedPropertyCard}
+        showRating={true}
+        overlayInfo={true}
       />
     ),
     []
@@ -190,36 +147,30 @@ export default function SearchScreen() {
   // Skeleton loading component
   const renderSkeletonItem = useCallback(
     ({ index }) => (
-      <LoadingCard
-        key={`skeleton-${index}`}
-        type="property"
-        style={styles.skeletonCard}
-      />
+      <ModernListSkeleton key={`skeleton-${index}`} count={1} type="property" />
     ),
     []
   );
 
-  // Optimized getItemLayout for better performance
-  const getItemLayout = useCallback(
-    (data, index) => ({
-      length: 320, // Approximate height of PropertyCard
-      offset: 320 * index,
-      index,
-    }),
-    []
-  );
-
-  // Key extractor
   const keyExtractor = useCallback((item) => item.id, []);
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.searchContainer}>
-        {/* Barra de búsqueda con botón de filtros */}
+  const renderFloatingSearchBar = () => (
+    <View>
+      <FloatingCard
+        style={styles.floatingSearchContainer}
+        shadowLevel="medium"
+        padding="sm"
+      >
         <View style={styles.searchBarContainer}>
+          <Ionicons
+            name="search"
+            size={20}
+            color={currentTheme.textSecondary}
+          />
           <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar por ciudad..."
+            style={[styles.searchInput, { color: currentTheme.onBackground }]}
+            placeholder="¿A dónde quieres ir?"
+            placeholderTextColor={currentTheme.textSecondary}
             value={searchQuery}
             onChangeText={handleSearchChange}
             onSubmitEditing={handleSearch}
@@ -228,60 +179,76 @@ export default function SearchScreen() {
             style={styles.filterButton}
             onPress={() => setShowAdvancedFilters(true)}
           >
-            <FontAwesome name="filter" size={16} color={COLORS.primary} />
+            <Ionicons name="options" size={20} color={currentTheme.primary} />
             {activeFiltersCount > 0 && (
-              <View style={styles.filterBadge}>
+              <View
+                style={[
+                  styles.filterBadge,
+                  { backgroundColor: currentTheme.primary },
+                ]}
+              >
                 <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
+      </FloatingCard>
 
-        {/* Sugerencias de ciudades */}
-        {showSuggestions && (
-          <View style={styles.suggestionsContainer}>
+      {/* Results count inside gradient header */}
+      {properties.length > 0 && (
+        <View style={styles.resultsHeaderInGradient}>
+          <Text style={styles.resultsCountInGradient}>
+            {properties.length} propiedad
+            {properties.length > 1 ? "es" : ""} encontrada
+            {properties.length > 1 ? "s" : ""}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  return (
+    <View
+      style={[styles.container, { backgroundColor: currentTheme.background }]}
+    >
+      {/* Modern Gradient Header */}
+      <GradientHeader height={90}>{renderFloatingSearchBar()}</GradientHeader>
+
+      {/* City Suggestions */}
+      {showSuggestions && (
+        <FloatingCard style={styles.suggestionsContainer} shadowLevel="large">
+          <ScrollView style={{ maxHeight: 200 }}>
             {suggestedCities.map((city, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.suggestionItem}
                 onPress={() => selectCity(city)}
               >
-                <FontAwesome
-                  name="map-marker"
-                  size={14}
-                  color={COLORS.darkGray}
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={currentTheme.textSecondary}
                   style={styles.suggestionIcon}
                 />
-                <Text style={styles.suggestionText}>{city}</Text>
+                <Text
+                  style={[
+                    styles.suggestionText,
+                    { color: currentTheme.onBackground },
+                  ]}
+                >
+                  {city}
+                </Text>
               </TouchableOpacity>
             ))}
-          </View>
-        )}
-
-        {/* Active Filters Summary */}
-        {activeFiltersCount > 0 && (
-          <View style={styles.activeFiltersContainer}>
-            <View style={styles.activeFiltersInfo}>
-              <Text style={styles.activeFiltersText}>
-                {activeFiltersCount} filtro{activeFiltersCount > 1 ? "s" : ""}{" "}
-                activo{activeFiltersCount > 1 ? "s" : ""}
-              </Text>
-              {currentFilters.sortBy && (
-                <Text style={styles.sortInfo}>• {getCurrentSortLabel()}</Text>
-              )}
-            </View>
-            <TouchableOpacity onPress={handleClearAllFilters}>
-              <Text style={styles.clearFiltersText}>Limpiar todo</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+          </ScrollView>
+        </FloatingCard>
+      )}
 
       {/* Results */}
       {isLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <FlatList
-            data={Array(6).fill({})} // Show 6 skeleton items
+            data={Array(6).fill({})}
             renderItem={renderSkeletonItem}
             keyExtractor={(_, index) => `skeleton-${index}`}
             contentContainerStyle={styles.propertiesList}
@@ -293,7 +260,6 @@ export default function SearchScreen() {
           data={properties}
           renderItem={renderPropertyItem}
           keyExtractor={keyExtractor}
-          getItemLayout={getItemLayout}
           contentContainerStyle={styles.propertiesList}
           refreshControl={
             <RefreshControl
@@ -303,69 +269,17 @@ export default function SearchScreen() {
               tintColor={currentTheme.primary}
             />
           }
-          // Performance optimizations
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          initialNumToRender={6}
-          updateCellsBatchingPeriod={50}
-          // List components
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View
-              style={[
-                styles.emptyContainer,
-                { backgroundColor: currentTheme.background },
-              ]}
-            >
-              <FontAwesome
-                name="search"
-                size={50}
-                color={currentTheme.textSecondary}
+            !isLoading && (
+              <ModernEmptyState
+                icon="search"
+                title="No se encontraron propiedades"
+                subtitle="Intenta ajustar tus filtros de búsqueda"
+                actionText="Mostrar todas"
+                onActionPress={handleClearAllFilters}
               />
-              <Text
-                style={[styles.emptyText, { color: currentTheme.onBackground }]}
-              >
-                No se encontraron propiedades
-              </Text>
-              <Text
-                style={[
-                  styles.emptySubtext,
-                  { color: currentTheme.textSecondary },
-                ]}
-              >
-                Intenta ajustar tus filtros de búsqueda
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.resetButton,
-                  { backgroundColor: currentTheme.primary },
-                ]}
-                onPress={handleClearAllFilters}
-              >
-                <Text style={styles.resetButtonText}>Mostrar todas</Text>
-              </TouchableOpacity>
-            </View>
-          }
-          ListHeaderComponent={
-            properties.length > 0 ? (
-              <View
-                style={[
-                  styles.resultsHeader,
-                  { borderBottomColor: currentTheme.border },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.resultsCount,
-                    { color: currentTheme.textSecondary },
-                  ]}
-                >
-                  {properties.length} propiedad
-                  {properties.length > 1 ? "es" : ""} encontrada
-                  {properties.length > 1 ? "s" : ""}
-                </Text>
-              </View>
-            ) : null
+            )
           }
         />
       )}
@@ -384,291 +298,117 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
   },
-  searchContainer: {
-    backgroundColor: COLORS.white,
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+  floatingSearchContainer: {
+    position: "absolute",
+    bottom: SPACING.md, // Ajustado para el header más pequeño
+    left: SPACING.sm, // Reducido para hacer la barra más larga
+    right: SPACING.sm, // Reducido para hacer la barra más larga
+    zIndex: 10,
   },
   searchBarContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-  },
-  inputIcon: {
-    marginRight: 8,
+    paddingHorizontal: SPACING.md, // Reducido para barra más compacta
+    paddingVertical: SPACING.xs, // Muy reducido para hacer la barra más pequeña
   },
   searchInput: {
     flex: 1,
-    height: 36,
-    fontSize: 15,
-    paddingVertical: 0,
+    fontSize: 16,
+    marginLeft: SPACING.sm,
+    marginRight: SPACING.sm,
   },
   filterButton: {
-    marginLeft: 8,
-    padding: 6,
-    borderRadius: 6,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
-    elevation: 0,
+    position: "relative",
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.round,
+    backgroundColor: "rgba(255, 107, 53, 0.1)",
   },
   filterBadge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
   },
   filterBadgeText: {
+    color: "white",
     fontSize: 10,
-    color: COLORS.white,
     fontWeight: "600",
-    textAlign: "center",
-  },
-  typesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 5,
-  },
-  typeButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: COLORS.lightGray,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  typeButtonActive: {
-    backgroundColor: COLORS.primary,
-  },
-  typeText: {
-    color: COLORS.darkGray,
-    fontSize: 14,
-  },
-  typeTextActive: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  activeFiltersContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  activeFiltersInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  activeFiltersText: {
-    fontSize: 14,
-    color: COLORS.darkGray,
-    marginRight: 5,
-  },
-  sortInfo: {
-    fontSize: 14,
-    color: COLORS.darkGray,
-  },
-  clearFiltersText: {
-    fontSize: 14,
-    color: COLORS.primary,
-  },
-  searchButton: {
-    backgroundColor: COLORS.primary,
-    padding: 10,
-    borderRadius: 5,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  searchButtonText: {
-    fontSize: 16,
-    color: COLORS.white,
-    marginLeft: 5,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 16,
-    color: COLORS.darkGray,
-    marginTop: 10,
-  },
-  propertiesList: {
-    padding: 15,
-  },
-  propertyCard: {
-    flexDirection: "row",
-    backgroundColor: COLORS.white,
-    borderRadius: 10,
-    marginBottom: 15,
-    boxShadow: "0px 2px 4px rgba(0, 0, 0, 0.1)",
-    elevation: 2,
-    overflow: "hidden",
-  },
-  imageContainer: {
-    width: 120,
-    height: 120,
-    overflow: "hidden",
-    backgroundColor: COLORS.background,
-  },
-  propertyImage: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: COLORS.lightGray,
-  },
-  noImageContainer: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  noImageText: {
-    color: COLORS.darkGray,
-    marginTop: 5,
-    fontSize: 12,
-  },
-  propertyInfo: {
-    flex: 1,
-    padding: 12,
-    justifyContent: "space-between",
-  },
-  propertyTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-  propertyLocation: {
-    fontSize: 14,
-    color: COLORS.darkGray,
-    marginVertical: 5,
-  },
-  propertyDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 5,
-  },
-  propertyMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  propertyType: {
-    fontSize: 12,
-    backgroundColor: COLORS.lightGray,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    color: COLORS.darkGray,
-  },
-  propertyCapacity: {
-    fontSize: 12,
-    color: COLORS.darkGray,
-    marginLeft: 5,
-  },
-  propertyPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: COLORS.primary,
-  },
-  perNight: {
-    fontSize: 12,
-    fontWeight: "normal",
-    color: COLORS.darkGray,
-  },
-  emptyContainer: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: COLORS.darkGray,
-    textAlign: "center",
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: COLORS.darkGray,
-    textAlign: "center",
-    marginTop: 5,
-  },
-  resetButton: {
-    marginTop: 15,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 5,
-  },
-  resetButtonText: {
-    color: COLORS.white,
-    fontWeight: "500",
-  },
-  resultsHeader: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  resultsCount: {
-    fontSize: 16,
-    color: COLORS.darkGray,
   },
   suggestionsContainer: {
     position: "absolute",
-    top: 70,
-    left: 15,
-    right: 15,
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    top: 100, // Ajustado para la nueva altura del header (90) + padding
+    left: SPACING.sm, // Coincide con la barra de búsqueda
+    right: SPACING.sm, // Coincide con la barra de búsqueda
     zIndex: 100,
-    maxHeight: 200,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: COLORS.lightGray,
   },
   suggestionItem: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
+    borderBottomColor: "rgba(0, 0, 0, 0.05)",
   },
   suggestionIcon: {
-    marginRight: 10,
+    marginRight: SPACING.sm,
   },
   suggestionText: {
     fontSize: 14,
-    color: COLORS.text,
   },
-  // Optimized styles
-  optimizedPropertyCard: {
-    marginBottom: 16,
+  loadingContainer: {
+    flex: 1,
+    paddingTop: SPACING.md, // Reducido ya que el header es más compacto
+  },
+  propertiesList: {
+    paddingTop: SPACING.md, // Reducido ya que el header es más compacto
+    paddingBottom: SPACING.xl,
   },
   skeletonCard: {
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
+    marginHorizontal: SPACING.lg,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.xxl,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+    textAlign: "center",
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: SPACING.xl,
+  },
+  resetButton: {
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.medium,
+  },
+  resetButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  resultsHeaderInGradient: {
+    marginTop: SPACING.xs, // Reducido para menos espacio
+    paddingHorizontal: SPACING.md, // Reducido para ser más compacto
+  },
+  resultsCountInGradient: {
+    fontSize: 12, // Reducido para ocupar menos espacio
+    fontWeight: "500",
+    color: "rgba(255, 255, 255, 0.9)", // Texto blanco semi-transparente para el fondo naranja
+    textAlign: "center",
   },
 });

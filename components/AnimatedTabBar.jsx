@@ -36,7 +36,7 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
   const animationValues = useRef(
     state.routes.map(() => ({
       scale: new Animated.Value(0.8),
-      width: new Animated.Value(50),
+      width: new Animated.Value(40), // Reducido de 50 a 40
       opacity: new Animated.Value(0),
     }))
   ).current;
@@ -59,7 +59,7 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
 
       // Animate width (layout driver - cannot use native)
       Animated.timing(animations.width, {
-        toValue: isFocused ? 120 : 50,
+        toValue: isFocused ? 100 : 40, // Reducido proporcionalmente
         duration: 300,
         useNativeDriver: false,
       }).start();
@@ -162,7 +162,7 @@ const AnimatedTabBar = ({ state, descriptors, navigation }) => {
                         color: isFocused
                           ? tabColor
                           : currentTheme.textSecondary,
-                        size: 24,
+                        size: 20, // Reducido de 24 a 20
                       })}
                   </View>
 
@@ -207,9 +207,9 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: "row",
-    height: 70,
+    height: 55, // Reducido de 70 a 55
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 4, // Reducido de 8 a 4
   },
   tab: {
     flex: 1,
@@ -220,20 +220,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 25,
-    minWidth: 50,
-    height: 50,
+    paddingHorizontal: 10, // Reducido de 12 a 10
+    paddingVertical: 4, // Reducido de 8 a 4
+    borderRadius: 20, // Reducido de 25 a 20 para mantener proporción
+    minWidth: 40, // Reducido de 50 a 40
+    height: 40, // Reducido de 50 a 40
   },
   iconContainer: {
     justifyContent: "center",
     alignItems: "center",
   },
   tabLabel: {
-    fontSize: 12,
+    fontSize: 10, // Reducido de 12 a 10
     fontWeight: "600",
-    marginLeft: 6,
+    marginLeft: 4, // Reducido de 6 a 4
   },
 });
 
